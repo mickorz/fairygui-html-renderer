@@ -1,0 +1,3 @@
+[submodule "thirdparties/OpenFairy-SDK-uGUI"]
+	path = thirdparties/OpenFairy-SDK-uGUI
+	url = https://github.com/OpenFairyGUI/OpenFairy-SDK-uGUI

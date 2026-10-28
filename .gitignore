@@ -1,0 +1,8 @@
+# 依赖与构建产物
+node_modules/
+dist/
+
+# Claude Code 本地配置（不进 git）
+.claude/settings.local.json
+
+
