@@ -1,0 +1,19 @@
+{
+  "name": "fairygui-html-renderer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "tsx src/poc/render.ts",
+    "check": "tsx tests/render-check.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "fast-xml-parser": "^5.11.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
