@@ -5,4 +5,10 @@ dist/
 # Claude Code 本地配置（不进 git）
 .claude/settings.local.json
 
+# 本地 FairyGUI 测试工程（含大量二进制资源与编辑器元数据，不进 git）
+CC-Default/
+
+# 渲染产物输出
+demo/
+
 

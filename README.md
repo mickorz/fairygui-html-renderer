@@ -24,7 +24,8 @@ git clone --recursive https://github.com/mickorz/fairygui-html-renderer.git
 
 ```text
 docs/          读者向文档
-dev-docs/      开发过程文档（不进 git）
-dev-examples/  开发期沙盒（不进 git）
+dev-docs/      开发过程文档
+dev-examples/  开发期沙盒
 thirdparties/  第三方依赖（git submodule）
+CC-Default/    本地 FairyGUI 测试工程（不进 git）
 ```
