@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="100,100">
+  <controller name="c1" pages="0,,1," selected="1"/>
+  <displayList>
+    <text id="t1" name="label" xy="0,0" size="80,20" text="GC" fontSize="14" color="#ffffff">
+      <gearColor controller="c1" pages="1" values="#000000,#000000" default="#ffffff,#000000"/>
+    </text>
+  </displayList>
+</component>

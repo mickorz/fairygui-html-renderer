@@ -1,6 +1,7 @@
 import path from "node:path";
+import { loadPackage, resourceIdOf, type FairyPackage } from "../parser/package-parser.js";
 import { parseComponent, type ParsedComponent, type ParsedNode } from "../parser/component-parser.js";
-import { resourceIdOf, type FairyPackage } from "../parser/package-parser.js";
+import { buildGlobalIndex, parseUiUrl } from "./global-index.js";
 
 // 场景树构建：递归展开 component 节点引用的子组件 XML
 // A2：构建与缓存分离——getComponent 缓存的解析结果视为不可变原始数据，
@@ -32,6 +33,8 @@ export function clearCache(): void {
 
 export interface SceneOptions {
   pkg: FairyPackage;
+  /** 工程根目录：list 节点解析 ui:// defaultItem 需要；未传时 list 保持未支持 */
+  root?: string;
   /** 循环引用上报回调（可选） */
   onCycle?: (file: string, stack: string[]) => void;
 }
@@ -61,6 +64,10 @@ export function buildScene(comp: ParsedComponent, opts: SceneOptions, ctx?: Buil
     const copy: ParsedNode = { ...node, attrs: { ...node.attrs }, gears: node.gears.map((g) => ({ ...g })) };
     copy.instancePath = `${parentPath}.${copy.name || copy.id}`;
     copy.stableKey = `${keyPrefix}.${copy.id}`;
+    if (copy.type === "list") {
+      expandList(copy, opts, { stack: fullStack, parentPath, keyPrefix });
+      return copy;
+    }
     if (copy.type !== "component" || !copy.src) return copy;
     const res = opts.pkg.byId(copy.src);
     if (!res || res.kind !== "component") {
@@ -84,7 +91,60 @@ export function buildScene(comp: ParsedComponent, opts: SceneOptions, ctx?: Buil
         keyPrefix: childKeyPrefix,
       }),
     };
+    injectExtensionProps(copy);
     return copy;
   });
   return { ...comp, nodes };
+}
+
+/**
+ * 扩展组件属性注入（E3）：<Label title="Bag"/> 把 title 写入子场景 name="title" 的 text 节点。
+ * copy.childComp.comp 是本次构建的新副本，直接修改不会污染缓存。
+ */
+function injectExtensionProps(copy: ParsedNode): void {
+  const props = copy.extensionProps;
+  const child = copy.childComp?.comp;
+  if (!props || !child) return;
+  const title = props.Label?.title ?? props.Button?.title ?? props.Title?.title;
+  if (title !== undefined) {
+    applyTitle(child, title);
+  }
+}
+
+function applyTitle(scene: ParsedComponent, title: string): void {
+  for (const n of scene.nodes) {
+    if (n.name === "title" && n.type === "text") {
+      n.attrs = { ...n.attrs, text: title };
+      continue;
+    }
+    if (n.childComp) applyTitle(n.childComp.comp, title);
+  }
+}
+
+/** list 节点静态渲染（E4）：按 defaultItem（ui://）为每个 item 生成实例场景副本 */
+function expandList(copy: ParsedNode, opts: SceneOptions, ctx: BuildContext): void {
+  if (!opts.root) {
+    copy.unsupported = "list 展开需要 SceneOptions.root（解析 ui:// defaultItem）";
+    return;
+  }
+  const defaultItem = copy.attrs.defaultItem ?? "";
+  const hit = parseUiUrl(defaultItem, buildGlobalIndex(opts.root));
+  if (!hit || hit.resource.kind !== "component") {
+    copy.unsupported = `list defaultItem 无法解析: ${defaultItem}`;
+    return;
+  }
+  const itemPkg = loadPackage(hit.pkgDir);
+  const itemCount = Math.min(copy.itemCount ?? 0, 200);
+  copy.listItems = [];
+  for (let i = 0; i < itemCount; i++) {
+    copy.listItems.push({
+      index: i,
+      pkg: itemPkg,
+      scene: buildScene(getComponent(hit.resource.file, { fresh: true }), { pkg: itemPkg, root: opts.root }, {
+        stack: [...ctx.stack, path.normalize(hit.resource.file)],
+        parentPath: `${copy.instancePath}.item${i}`,
+        keyPrefix: `${copy.stableKey}#${i}~${itemPkg.id}.${hit.resource.id}`,
+      }),
+    });
+  }
 }

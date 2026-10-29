@@ -1,6 +1,7 @@
 import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { loadPackage, type FairyPackage } from "../parser/package-parser.js";
+import { buildGlobalIndex, parseUiUrl, type GlobalIndex } from "./global-index.js";
 import { getComponent, buildScene } from "./scene-builder.js";
 import type { ParsedNode } from "../parser/component-parser.js";
 
@@ -102,9 +103,12 @@ export function searchWorkspace(root: string, q: string): { query: string; total
       if (r.kind !== "component") continue;
       const component = `${pkgs.name}/${r.name}`;
       // fresh：搜索应反映磁盘最新内容
-      const scene = buildScene(getComponent(r.file, { fresh: true }), { pkg });
+      const scene = buildScene(getComponent(r.file, { fresh: true }), { pkg, root });
       collectMatches(scene.nodes, q, component, results);
     }
   }
   return { query: q, total: results.length, truncated: results.length >= SEARCH_LIMIT, results };
 }
+
+export { buildGlobalIndex, parseUiUrl };
+export type { GlobalIndex };

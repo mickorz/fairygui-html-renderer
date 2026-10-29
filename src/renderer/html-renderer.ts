@@ -48,7 +48,8 @@ function toCssColor(s: string | undefined, fallback: string): string {
 function applyGear(gear: Gear, comp: ParsedComponent, geo: Geo): void {
   const ctrl = comp.controllers.find((c) => c.name === gear.controller);
   if (!ctrl) return;
-  const idx = ctrl.pageIds.indexOf(ctrl.selected);
+  // 在 gear 自己的 pages 中找当前选中页（gear.pages 与 controller.pageIds 布局可能不同）
+  const idx = gear.pages.indexOf(ctrl.selected);
   let value = gear.default;
   if (idx >= 0 && gear.values && gear.values[idx] && gear.values[idx] !== "-") {
     value = gear.values[idx];
@@ -59,19 +60,34 @@ function applyGear(gear: Gear, comp: ParsedComponent, geo: Geo): void {
   else if (gear.kind === "size" && pair.length === 2 && !Number.isNaN(pair[0])) geo.size = [pair[0], pair[1]];
 }
 
-/** 计算 gearDisplay 可见性与 gearXY/gearSize 几何 */
-function resolveGear(node: ParsedNode, comp: ParsedComponent): { hidden: boolean; geo: Geo } {
+/** 计算 gearDisplay 可见性与 gearXY/gearSize/gearColor 默认页取值 */
+function resolveGear(node: ParsedNode, comp: ParsedComponent): { hidden: boolean; geo: Geo; colorOverride?: string } {
   const geo: Geo = { xy: node.xy, size: node.size };
   let hidden = false;
+  let colorOverride: string | undefined;
   for (const gear of node.gears) {
     const ctrl = comp.controllers.find((c) => c.name === gear.controller);
     if (gear.kind === "display") {
       if (ctrl && !gear.pages.includes(ctrl.selected)) hidden = true;
+    } else if (gear.kind === "color") {
+      // 页值格式 "color,stroke"；取 color 段。有实值时覆盖节点颜色
+      const value = pickGearValue(gear, ctrl);
+      if (value) colorOverride = value.split(",")[0] || undefined;
     } else {
       applyGear(gear, comp, geo);
     }
   }
-  return { hidden, geo };
+  return { hidden, geo, colorOverride };
+}
+
+/** 取 gear 当前选中页的值：在 gear 自己的 pages 中找选中页，"-" 或无匹配用 default；无实质值返回 null */
+function pickGearValue(gear: Gear, ctrl: { pageIds: string[]; selected: string } | undefined): string | null {
+  if (!ctrl) return null;
+  const idx = gear.pages.indexOf(ctrl.selected);
+  let value = gear.default;
+  if (idx >= 0 && gear.values && gear.values[idx] && gear.values[idx] !== "-") value = gear.values[idx];
+  if (!value || value === "-") return null;
+  return value;
 }
 
 function baseStyle(geo: Geo, node: ParsedNode): string {
@@ -127,7 +143,7 @@ function renderNode(
   unsupported: UnsupportedItem[],
   tints: Set<string>,
 ): string {
-  const { hidden, geo } = resolveGear(node, comp);
+  const { hidden, geo, colorOverride } = resolveGear(node, comp);
   const gearStyle = hidden ? "visibility:hidden;" : "";
   const attrs = dataAttrs(node, comp.file);
 
@@ -164,8 +180,10 @@ function renderNode(
         return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f"></div>`;
       }
       const nine = nineSliceStyle(res, ctx);
-      const tint = tintStyle(node.attrs.color);
-      if (node.attrs.color && !tint) unsupported.push({ nodeId: node.id, reason: `image 染色 color=${node.attrs.color} 无法解析` });
+      // E1 gearColor 默认页覆盖 > 属性染色
+      const tintSrc = colorOverride ?? node.attrs.color;
+      const tint = tintStyle(tintSrc);
+      if (tintSrc && !tint) unsupported.push({ nodeId: node.id, reason: `image 染色 color=${tintSrc} 无法解析` });
       const filter = [tint, node.attrs.grayed === "true" ? "grayscale(1)" : ""].filter(Boolean).join(" ");
       if (nine) {
         // 九宫格：div + border-image（拉伸不变形）
@@ -176,23 +194,56 @@ function renderNode(
       if (filter) style.push(`filter:${filter}`);
       return `<img ${attrs} src="${esc(ctx.toAssetUrl(res.file))}" class="fgui-node" style="${style.join(";")}" alt="">`;
     }
+    case "loader": {
+      // loader 无 url 时由运行时填充：静态渲染给灰底占位，不计入未支持清单
+      const style = [`${gearStyle}${baseStyle(geo, node)}`];
+      style.push("background:rgba(255,255,255,.08);border:1px solid #666");
+      style.push("display:flex;align-items:center;justify-content:center;color:#999;font-size:11px");
+      if (node.attrs.url) unsupported.push({ nodeId: node.id, reason: `loader url=${node.attrs.url} 渲染未实现` });
+      return `<div ${attrs} class="fgui-node" style="${style.join(";")}">Loader</div>`;
+    }
+    case "list": {
+      // 静态渲染：按 defaultItem 展开的 item 实例，flex 布局近似
+      if (!node.listItems?.length) {
+        unsupported.push({ nodeId: node.id, reason: "list 无可展开 item（缺 root 或 defaultItem 未解析）" });
+        return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f;background:rgba(255,77,79,.08)"></div>`;
+      }
+      const layout = node.attrs.layout ?? "";
+      const colGap = node.attrs.colGap ? `${node.attrs.colGap}px` : "0";
+      const lineGap = node.attrs.lineGap ? `${node.attrs.lineGap}px` : "0";
+      const flexDir = layout === "row" ? "row" : "column";
+      const flexWrap = layout === "pagination" ? "flex-wrap:wrap;" : "";
+      const gap = layout === "row" ? `gap:0 ${colGap};` : layout === "pagination" ? `gap:${lineGap} ${colGap};` : `gap:${lineGap} 0;`;
+      const items = node.listItems
+        .map((item) => {
+          const inner = renderChildren(item.scene, { pkg: item.pkg, toAssetUrl: ctx.toAssetUrl }, [...stack, `${node.stableKey}#${item.index}`], unsupported, tints);
+          return `<div class="fgui-node" style="position:relative;flex:none">${inner}</div>`;
+        })
+        .join("");
+      return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};display:flex;flex-direction:${flexDir};${flexWrap}${gap}overflow:hidden">${items}</div>`;
+    }
     case "text": {
       const style = [`${gearStyle}${baseStyle(geo, node)}`];
       const autoSize = node.attrs.autoSize ?? "none";
       if (autoSize === "height" && geo.size) style.push("height:auto"); // 高度随内容自适应
       style.push(`font-size:${node.attrs.fontSize ?? 12}px`);
-      style.push(`color:${toCssColor(node.attrs.color, "#000000")}`);
+      // E1 gearColor 默认页覆盖 > 属性色
+      style.push(`color:${colorOverride ?? toCssColor(node.attrs.color, "#000000")}`);
+      // E2 描边（近似：FairyGUI 描边向外，CSS text-stroke 居中，视觉略细）
+      if (node.attrs.strokeColor) {
+        const size = node.attrs.strokeSize ? Number(node.attrs.strokeSize) : 2;
+        style.push(`-webkit-text-stroke:${size}px ${toCssColor(node.attrs.strokeColor, "#000000")}`);
+      }
       style.push("line-height:1.2;white-space:pre-wrap;overflow:hidden");
       if (node.attrs.align) style.push(`text-align:${node.attrs.align}`);
       if (node.attrs.valign) unsupported.push({ nodeId: node.id, reason: "text valign 未实现" });
-      if (node.attrs.strokeColor) unsupported.push({ nodeId: node.id, reason: "text 描边 strokeColor 未实现" });
       return `<div ${attrs} class="fgui-node" style="${style.join(";")}">${esc(node.attrs.text ?? "")}</div>`;
     }
     case "graph": {
       const style = [`${gearStyle}${baseStyle(geo, node)}`];
       const gtype = node.attrs.type ?? "none";
       if (gtype === "ellipse") style.push("border-radius:50%");
-      style.push(`background:${toCssColor(node.attrs.fillColor, "transparent")}`);
+      style.push(`background:${colorOverride ?? toCssColor(node.attrs.fillColor, "transparent")}`);
       if (node.attrs.lineSize !== undefined && node.attrs.lineSize !== "0") {
         unsupported.push({ nodeId: node.id, reason: "graph 描边 lineSize 未实现" });
       }

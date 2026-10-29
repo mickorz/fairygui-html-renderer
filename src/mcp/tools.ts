@@ -57,7 +57,7 @@ export function findNodeByKey(ctx: McpContext, key: string): FoundNode | null {
     const pkg = loadPackage(pkgDir);
     for (const r of pkg.resources) {
       if (r.kind !== "component") continue;
-      const scene = buildScene(getComponent(r.file, { fresh: true }), { pkg });
+      const scene = buildScene(getComponent(r.file, { fresh: true }), { pkg, root: ctx.rootDir });
       const hit = findInNodes(scene, key);
       if (hit) return { pkgDir, pkgId: pkg.id, component: `${p.name}/${r.name}`, scene: hit.scene, node: hit.node };
     }

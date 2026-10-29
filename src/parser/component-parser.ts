@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { XMLParser } from "fast-xml-parser";
+import type { FairyPackage } from "./package-parser.js";
 
 // FairyGUI 组件 XML 解析（有序模式）
 // A1：使用 preserveOrder 保留 displayList 原始混排顺序——绘制层级（z 序）依赖 XML 顺序，
@@ -13,7 +14,7 @@ const parser = new XMLParser({
 });
 
 export interface Gear {
-  kind: "display" | "xy" | "size";
+  kind: "display" | "xy" | "size" | "color";
   controller: string;
   /** 页 id 列表，与 values 一一对应 */
   pages: string[];
@@ -36,6 +37,12 @@ export interface ParsedNode {
   attrs: Record<string, string>;
   /** 节点上的 gearXxx 子元素 */
   gears: Gear[];
+  /** component 节点的扩展设置子元素（如 <Label title="Bag"/> -> { Label: { title: "Bag" } }） */
+  extensionProps?: Record<string, Record<string, string>>;
+  /** list 节点的 item 子元素数量 */
+  itemCount?: number;
+  /** list 节点按 defaultItem 展开的 item 场景副本（由 buildScene 填充，各项携带自身包） */
+  listItems?: { index: number; scene: ParsedComponent; pkg: FairyPackage }[];
   /** component 节点递归展开后的子组件（由 scene-builder 构建填充） */
   childComp?: { file: string; comp: ParsedComponent };
   /** 实例路径（如 BagWin.frame.n2），构建时由 buildScene 填充 */
@@ -94,12 +101,24 @@ function parsePair(s: string | undefined): [number, number] | undefined {
   return [parts[0] ?? 0, parts[1] ?? 0];
 }
 
-const KNOWN_TYPES = new Set(["image", "text", "graph", "component"]);
+const KNOWN_TYPES = new Set(["image", "text", "graph", "component", "list", "loader"]);
 const GEAR_KINDS: { tag: string; kind: Gear["kind"] }[] = [
   { tag: "gearDisplay", kind: "display" },
   { tag: "gearXY", kind: "xy" },
   { tag: "gearSize", kind: "size" },
+  { tag: "gearColor", kind: "color" },
 ];
+
+/** component 节点上的扩展设置子元素：<Label title="Bag"/> -> { Label: { title: "Bag" } } */
+function parseExtensionProps(inner: OrderItem[]): Record<string, Record<string, string>> | undefined {
+  const props: Record<string, Record<string, string>> = {};
+  for (const item of inner) {
+    const tag = tagOf(item);
+    if (!tag || tag === ":@" || tag.startsWith("gear")) continue;
+    props[tag] = attrsOf(item);
+  }
+  return Object.keys(props).length ? props : undefined;
+}
 
 /** 解析节点内容数组中的 gearXxx 子元素 */
 function parseGears(inner: OrderItem[]): Gear[] {
@@ -153,7 +172,12 @@ export function parseComponent(xmlFile: string): ParsedComponent {
         src: e.src,
         attrs: e,
         gears: parseGears(childrenOf(item, type)),
+        extensionProps: parseExtensionProps(childrenOf(item, type)),
       };
+      if (type === "list") {
+        // list 的 item 子元素数量（静态渲染时按 defaultItem 展开）
+        node.itemCount = childrenOf(item, type).filter((i2) => tagOf(i2) === "item").length;
+      }
       if (!KNOWN_TYPES.has(type)) {
         node.unsupported = `节点类型 ${type} 未支持`;
       }

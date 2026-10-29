@@ -4,5 +4,6 @@
     <component id="c_a" name="CycleA.xml" path="/"/>
     <component id="c_b" name="CycleB.xml" path="/"/>
     <component id="c_c" name="Dup.xml" path="/"/>
+    <component id="c_gc" name="GearColorText.xml" path="/"/>
   </resources>
 </packageDescription>

@@ -34,7 +34,7 @@ check("节点保留原始 id/name", dotHtml.includes('data-fgui-id="n23_osdo"') 
 check("stage 尺寸 15x15", dotHtml.includes("width:15px;height:15px"));
 
 // ===== P1：BagWin 嵌套 / 九宫格 / gear 取值 =====
-const bagWin = buildScene(getComponent(path.join(pkgDir, "BagWin.xml")), { pkg });
+const bagWin = buildScene(getComponent(path.join(pkgDir, "BagWin.xml")), { pkg, root: path.resolve("CC-Default") });
 const bagHtml = renderHtml(bagWin, { pkg, toAssetUrl: (f) => f });
 
 check("嵌套组件 frame 与 closeButton 三层展开", bagHtml.includes('data-fgui-name="frame"') && bagHtml.includes('data-fgui-name="closeButton"'));
@@ -42,7 +42,13 @@ check("九宫格 slice 换算 78 86 66 88", bagHtml.includes("border-image-slice
 check("9grid 超界 clamp（负 slice 归零）", bagHtml.includes("border-image-slice:1 83 0 83"));
 check("gearXY 默认页取值 n4=(2,13)", /data-fgui-id="n4"[^>]*left:2px;top:13px/.test(flat(bagHtml)));
 check("嵌套内 gearDisplay 隐藏 n1/n3", /data-fgui-id="n1"[^>]*visibility:hidden/.test(flat(bagHtml)) && /data-fgui-id="n3"[^>]*visibility:hidden/.test(flat(bagHtml)));
-check("未支持类型 list loader 上报", bagHtml.includes("节点类型 list 未支持") && bagHtml.includes("节点类型 loader 未支持"));
+// ===== 阶段 E：BagWin 未支持清单清零 + title 注入 + list 展开 + 描边（取代旧的 list/loader 未支持断言） =====
+check("阶段 E：BagWin 未支持清单清零", !bagHtml.includes("未支持"));
+check("阶段 E：标题注入 Bag（覆盖默认窗口标题）", bagHtml.includes(">Bag</div>") && !bagHtml.includes("窗口标题"));
+check("阶段 E：标题描边 -webkit-text-stroke", bagHtml.includes("-webkit-text-stroke:2px #000000"));
+check("阶段 E：list 静态展开首尾 item 实例", bagHtml.includes('data-fgui-key="rbw1tv9t.kcy10.n8#0~rbw1tv9t.jlmg7.') && bagHtml.includes("n8#19~rbw1tv9t.jlmg7."));
+check("阶段 E：row 布局页签 list（3 个 dot）", bagHtml.includes("n25_osdo#2~rbw1tv9t.osdok"));
+check("阶段 E：loader 占位不再上报", bagHtml.includes(">Loader</div>"));
 
 // ===== P2：实例路径与选择器 =====
 check("实例路径三层嵌套 BagWin.frame.closeButton.n4", bagHtml.includes('data-fgui-path="BagWin.frame.closeButton.n4"'));
@@ -105,6 +111,11 @@ check("clearCache 后重新解析（新对象）", cached1 !== cached2);
 const fresh1 = getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/CycleA.xml"));
 const fresh2 = getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/CycleA.xml"), { fresh: true });
 check("fresh 选项绕过缓存", fresh1 !== fresh2);
+
+// ===== 阶段 E：gearColor 默认页覆盖（c1 selected=1 -> 文本变黑） =====
+const gcScene = buildScene(getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/GearColorText.xml")), { pkg: fxPkg(), root: path.resolve("tests/fixtures/workspace") });
+const gcHtml = renderHtml(gcScene, { pkg: fxPkg(), toAssetUrl: (f) => f });
+check("gearColor 默认页覆盖颜色", gcHtml.includes("color:#000000") && !gcHtml.includes("color:#ffffff"));
 
 if (failed > 0) {
   console.error(`检查失败 ${failed} 项`);

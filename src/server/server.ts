@@ -114,7 +114,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, root: 
     }
     const pkg = loadPackage(path.dirname(abs));
     // 每请求重解析（fresh），保证修改 XML 后刷新即生效
-    const scene = buildScene(getComponent(abs, { fresh: true }), { pkg });
+    const scene = buildScene(getComponent(abs, { fresh: true }), { pkg, root });
     return json(res, 200, toSceneJson(scene, pkg, { relativize: (a) => path.relative(root, a).split(path.sep).join("/") }));
   }
 
@@ -126,7 +126,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, root: 
       return text(res, 404, `组件不存在或路径越界: ${comp}`, "text/plain; charset=utf-8");
     }
     const pkg = loadPackage(path.dirname(abs));
-    const scene = buildScene(getComponent(abs, { fresh: true }), { pkg });
+    const scene = buildScene(getComponent(abs, { fresh: true }), { pkg, root });
     const html = renderHtml(scene, {
       pkg,
       toAssetUrl: (assetAbs) => `/api/assets/${path.relative(assetsRoot, assetAbs).split(path.sep).join("/")}`,

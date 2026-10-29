@@ -113,7 +113,7 @@ try {
     const ccPort = (ccServer.address() as AddressInfo).port;
     const pkg = loadPackage(path.resolve("CC-Default/assets/Bag"));
     const cliHtml = renderHtml(
-      buildScene(getComponent(path.resolve("CC-Default/assets/Bag/BagWin.xml")), { pkg }),
+      buildScene(getComponent(path.resolve("CC-Default/assets/Bag/BagWin.xml")), { pkg, root: path.resolve("CC-Default") }),
       { pkg, toAssetUrl: (f) => f },
     );
     const serverView = await fetch(`http://127.0.0.1:${ccPort}/view?component=` + encodeURIComponent("Bag/BagWin.xml"));
