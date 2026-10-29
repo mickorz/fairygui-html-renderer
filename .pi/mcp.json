@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "fairygui": {
+      "command": "npx",
+      "args": ["tsx", "src/mcp/main.ts"],
+      "description": "FairyGUI 工程只读工具：列出包与组件、按名称/ID/路径定位 UI 节点、渲染组件为 HTML、Chrome headless 截图验证"
+    }
+  }
+}
