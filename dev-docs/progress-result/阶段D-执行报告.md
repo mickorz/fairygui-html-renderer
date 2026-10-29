@@ -1,7 +1,7 @@
 # 阶段 D 执行报告：MCP 与 AI 联动
 
 - 完成时间：2026-10-29
-- 状态：验收通过（`npm run check:mcp` 9/9；累计自动化断言 56 项全绿；截图产物已人工可查）
+- 状态：验收通过（`npm run check:mcp` 9/9；累计自动化断言 56 项全绿；截图产物已人工可查；用户 shell `pi mcp list` 确认 connected, 4 tools）
 
 ## 交付内容（对照阶段 D 执行计划）
 
@@ -44,4 +44,4 @@ AI 典型调用链：`locate_component("头像框")` → 取 key → `render_com
 
 1. screenshot 依赖系统 Chrome（未装时返回明确错误并提示 CHROME_PATH）——pi-browser-use 环境已满足
 2. render/screenshot 产物在系统临时目录（fairygui-mcp/），不自动清理；量大后可加 LRU 清理
-3. 工具尚未在真实 pi 会话中通过 `mcp__fairygui__*` 调用验证（协议冒烟已覆盖传输层；接入后即可用）
+3. ~~工具尚未在真实 pi 会话中调用验证~~ 已完成：用户 shell `pi mcp add` + `pi mcp list` 确认 fairygui connected 且 4 工具全部注册（2026-10-29）；新 pi 会话中即可直接用自然语言触发工具链
