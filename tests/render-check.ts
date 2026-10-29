@@ -38,6 +38,12 @@ check("gearXY 默认页取值 n4=(2,13)", /data-fgui-id="n4"[^>]*left:2px;top:13
 check("嵌套内 gearDisplay 隐藏 n1/n3", /data-fgui-id="n1"[^>]*visibility:hidden/.test(bagHtml.replace(/>\s/g, ">")) && /data-fgui-id="n3"[^>]*visibility:hidden/.test(bagHtml.replace(/>\s/g, ">")));
 check("未支持类型 list loader 上报", bagHtml.includes("节点类型 list 未支持") && bagHtml.includes("节点类型 loader 未支持"));
 
+// ===== P2: 实例路径与点击选择器 =====
+check("实例路径三层嵌套 BagWin.frame.closeButton.n4", bagHtml.includes('data-fgui-path="BagWin.frame.closeButton.n4"'));
+check("顶层节点路径 BagWin.frame", bagHtml.includes('data-fgui-path="BagWin.frame"'));
+check("选择器脚本与信息栏注入", bagHtml.includes("id=\"fgui-info\"") && bagHtml.includes("fgui-select"));
+check("所有节点均带实例路径", (bagHtml.match(/data-fgui-path=/g) || []).length >= 15);
+
 if (failed > 0) {
   console.error(`检查失败 ${failed} 项`);
   process.exit(1);

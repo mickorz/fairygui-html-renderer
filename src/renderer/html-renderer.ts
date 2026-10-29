@@ -2,6 +2,7 @@ import path from "node:path";
 import type { ParsedComponent, ParsedNode, Gear } from "../parser/component-parser.js";
 import type { FairyPackage, ImageResource } from "../parser/package-parser.js";
 import { getComponent } from "../scene/scene-builder.js";
+import { selectorScript } from "../selection/component-selector.js";
 
 // 场景树 -> 静态 HTML 渲染器
 // P1：嵌套组件递归、九宫格 border-image、color 染色 SVG filter、gearXY/gearSize 默认页取值
@@ -88,9 +89,9 @@ function baseStyle(geo: Geo, node: ParsedNode): string {
   return parts.join(";");
 }
 
-function dataAttrs(node: ParsedNode, file: string): string {
+function dataAttrs(node: ParsedNode, file: string, instancePath: string): string {
   const src = file.split(path.sep).join("/");
-  return `data-fgui-id="${esc(node.id)}" data-fgui-name="${esc(node.name)}" data-fgui-src="${esc(src)}" data-fgui-type="${esc(node.type)}"`;
+  return `data-fgui-id="${esc(node.id)}" data-fgui-name="${esc(node.name)}" data-fgui-src="${esc(src)}" data-fgui-type="${esc(node.type)}" data-fgui-path="${esc(instancePath)}"`;
 }
 
 /** 收集 image 染色需要的 SVG filter 定义（乘法染色） */
@@ -125,9 +126,13 @@ function renderNode(
   stack: string[],
   unsupported: UnsupportedItem[],
   tints: Set<string>,
+  parentPath: string,
 ): string {
   const { hidden, geo } = resolveGear(node, comp);
   const gearStyle = hidden ? "visibility:hidden;" : "";
+  // 实例路径：父路径 + 节点名（无名用 id），供 AI 搜索与点击定位
+  const instancePath = `${parentPath}.${node.name || node.id}`;
+  const attrs = dataAttrs(node, comp.file, instancePath);
 
   const tintStyle = (attr: string | undefined): string => {
     if (!attr || !attr.startsWith("#")) return "";
@@ -139,27 +144,27 @@ function renderNode(
   // 未支持类型：虚线占位 + 上报
   if (node.unsupported) {
     unsupported.push({ nodeId: node.id, reason: node.unsupported });
-    return `<div ${dataAttrs(node, comp.file)} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f;background:rgba(255,77,79,.08)"></div>`;
+    return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f;background:rgba(255,77,79,.08)"></div>`;
   }
 
   switch (node.type) {
     case "component": {
       if (!node.childComp) {
         unsupported.push({ nodeId: node.id, reason: "component 子场景未构建" });
-        return `<div ${dataAttrs(node, comp.file)} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f"></div>`;
+        return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f"></div>`;
       }
       const child = node.childComp.comp;
       // 尺寸：节点未指定时用子组件自身设计尺寸
       if (!geo.size) geo.size = child.size;
-      // 嵌套容器：子节点 absolute 定位相对本容器
-      const inner = renderChildren(child, ctx, [...stack, node.childComp.file], unsupported, tints);
-      return `<div ${dataAttrs(node, comp.file)} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)}">${inner}</div>`;
+      // 嵌套容器：子节点 absolute 定位相对本容器，实例路径延续本节点
+      const inner = renderChildren(child, ctx, [...stack, node.childComp.file], unsupported, tints, instancePath);
+      return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)}">${inner}</div>`;
     }
     case "image": {
       const res = ctx.pkg.byId(node.src ?? "");
       if (!res || res.kind !== "image") {
         unsupported.push({ nodeId: node.id, reason: `image 引用资源 ${node.src ?? "?"} 未找到` });
-        return `<div ${dataAttrs(node, comp.file)} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f"></div>`;
+        return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f"></div>`;
       }
       const nine = nineSliceStyle(res, ctx);
       const tint = tintStyle(node.attrs.color);
@@ -167,12 +172,12 @@ function renderNode(
       const filter = [tint, node.attrs.grayed === "true" ? "grayscale(1)" : ""].filter(Boolean).join(" ");
       if (nine) {
         // 九宫格：div + border-image（拉伸不变形）
-        return `<div ${dataAttrs(node, comp.file)} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};${nine};${filter ? `filter:${filter};` : ""}"></div>`;
+        return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};${nine};${filter ? `filter:${filter};` : ""}"></div>`;
       }
       const style = [`${gearStyle}${baseStyle(geo, node)}`];
       if (!geo.size && res.width) style.push(`width:${res.width}px`, `height:${res.height}px`);
       if (filter) style.push(`filter:${filter}`);
-      return `<img ${dataAttrs(node, comp.file)} src="${esc(ctx.toAssetUrl(res.file))}" class="fgui-node" style="${style.join(";")}" alt="">`;
+      return `<img ${attrs} src="${esc(ctx.toAssetUrl(res.file))}" class="fgui-node" style="${style.join(";")}" alt="">`;
     }
     case "text": {
       const style = [`${gearStyle}${baseStyle(geo, node)}`];
@@ -184,7 +189,7 @@ function renderNode(
       if (node.attrs.align) style.push(`text-align:${node.attrs.align}`);
       if (node.attrs.valign) unsupported.push({ nodeId: node.id, reason: "text valign 未实现" });
       if (node.attrs.strokeColor) unsupported.push({ nodeId: node.id, reason: "text 描边 strokeColor 未实现" });
-      return `<div ${dataAttrs(node, comp.file)} class="fgui-node" style="${style.join(";")}">${esc(node.attrs.text ?? "")}</div>`;
+      return `<div ${attrs} class="fgui-node" style="${style.join(";")}">${esc(node.attrs.text ?? "")}</div>`;
     }
     case "graph": {
       const style = [`${gearStyle}${baseStyle(geo, node)}`];
@@ -194,11 +199,11 @@ function renderNode(
       if (node.attrs.lineSize !== undefined && node.attrs.lineSize !== "0") {
         unsupported.push({ nodeId: node.id, reason: "graph 描边 lineSize 未实现" });
       }
-      return `<div ${dataAttrs(node, comp.file)} class="fgui-node" style="${style.join(";")}"></div>`;
+      return `<div ${attrs} class="fgui-node" style="${style.join(";")}"></div>`;
     }
     default: {
       unsupported.push({ nodeId: node.id, reason: `节点类型 ${node.type} 未支持` });
-      return `<div ${dataAttrs(node, comp.file)} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f;background:rgba(255,77,79,.08)"></div>`;
+      return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f;background:rgba(255,77,79,.08)"></div>`;
     }
   }
 }
@@ -209,15 +214,17 @@ function renderChildren(
   stack: string[],
   unsupported: UnsupportedItem[],
   tints: Set<string>,
+  parentPath: string,
 ): string {
-  return comp.nodes.map((n) => renderNode(n, comp, ctx, stack, unsupported, tints)).join("\n    ");
+  return comp.nodes.map((n) => renderNode(n, comp, ctx, stack, unsupported, tints, parentPath)).join("\n    ");
 }
 
 /** 渲染组件为完整静态 HTML（先经 scene-builder 构建子组件树） */
 export function renderHtml(comp: ParsedComponent, ctx: RenderContext): string {
   const unsupported: UnsupportedItem[] = [];
   const tints = new Set<string>();
-  const inner = renderChildren(comp, ctx, [path.normalize(comp.file)], unsupported, tints);
+  const rootPath = path.basename(comp.file, ".xml");
+  const inner = renderChildren(comp, ctx, [path.normalize(comp.file)], unsupported, tints, rootPath);
 
   const listHtml = unsupported.length
     ? `<div class="unsupported-list">未支持 ${unsupported.length} 项: ${unsupported
@@ -236,15 +243,19 @@ export function renderHtml(comp: ParsedComponent, ctx: RenderContext): string {
 body { background:#2b2b2b; margin:0; padding:16px; font-family:sans-serif; }
 .fgui-stage { position:relative; background:#5a5a5a; overflow:hidden; }
 .fgui-node { position:absolute; box-sizing:border-box; }
+.fgui-selected { outline:2px solid #ffd666 !important; box-shadow:0 0 10px #ffd666 !important; z-index:9999; }
+#fgui-info { position:fixed; left:0; top:0; right:0; background:rgba(0,0,0,.78); color:#8ee6ff; padding:6px 12px; font-size:12px; z-index:10000; }
 .unsupported-list { position:fixed; left:0; bottom:0; right:0; background:rgba(0,0,0,.78); color:#ffd666; padding:6px 12px; font-size:12px; max-height:120px; overflow:auto; }
 </style>
 </head>
 <body>
+<div id="fgui-info">点击画布中的组件查看定位信息</div>
 ${defs}
 ${listHtml}
 <div class="fgui-stage" style="width:${comp.size[0]}px;height:${comp.size[1]}px">
     ${inner}
 </div>
+<script>${selectorScript()}</script>
 </body>
 </html>
 `;
