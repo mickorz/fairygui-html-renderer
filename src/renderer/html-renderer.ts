@@ -266,17 +266,25 @@ function renderChildren(
   return comp.nodes.map((n) => renderNode(n, comp, ctx, stack, unsupported, tints)).join("\n    ");
 }
 
+export interface RenderOptions {
+  /** 纯净模式：无信息栏/选择器脚本/内边距，专供截图对比与 MCP 截图 */
+  bare?: boolean;
+}
+
 /** 渲染组件为完整静态 HTML（先经 scene-builder 构建子组件树） */
-export function renderHtml(comp: ParsedComponent, ctx: RenderContext): string {
+export function renderHtml(comp: ParsedComponent, ctx: RenderContext, options: RenderOptions = {}): string {
   const unsupported: UnsupportedItem[] = [];
   const tints = new Set<string>();
   const inner = renderChildren(comp, ctx, [path.normalize(comp.file)], unsupported, tints);
 
-  const listHtml = unsupported.length
-    ? `<div class="unsupported-list">未支持 ${unsupported.length} 项: ${unsupported
-        .map((u) => `${esc(u.nodeId)}(${esc(u.reason)})`)
-        .join("; ")}</div>`
-    : "";
+  const bare = options.bare === true;
+  const listHtml = bare
+    ? ""
+    : unsupported.length
+      ? `<div class="unsupported-list">未支持 ${unsupported.length} 项: ${unsupported
+          .map((u) => `${esc(u.nodeId)}(${esc(u.reason)})`)
+          .join("; ")}</div>`
+      : "";
 
   const defs = tints.size ? `<svg width="0" height="0" style="position:absolute"><defs>${[...tints].map(tintFilterDef).join("")}</defs></svg>` : "";
 
@@ -286,7 +294,7 @@ export function renderHtml(comp: ParsedComponent, ctx: RenderContext): string {
 <meta charset="utf-8">
 <title>${esc(path.basename(comp.file))} - fairygui-html-renderer</title>
 <style>
-body { background:#2b2b2b; margin:0; padding:16px; font-family:sans-serif; }
+body { background:#2b2b2b; margin:0; padding:${bare ? 0 : 16}px; font-family:sans-serif; }
 .fgui-stage { position:relative; background:#5a5a5a; overflow:hidden; }
 .fgui-node { position:absolute; box-sizing:border-box; }
 .fgui-selected { outline:2px solid #ffd666 !important; box-shadow:0 0 10px #ffd666 !important; z-index:9999; }
@@ -295,13 +303,13 @@ body { background:#2b2b2b; margin:0; padding:16px; font-family:sans-serif; }
 </style>
 </head>
 <body>
-<div id="fgui-info">点击画布中的组件查看定位信息</div>
 ${defs}
+${bare ? "" : '<div id="fgui-info">点击画布中的组件查看定位信息</div>'}
 ${listHtml}
 <div class="fgui-stage" style="width:${comp.size[0]}px;height:${comp.size[1]}px">
     ${inner}
 </div>
-<script>${selectorScript()}</script>
+${bare ? "" : `<script>${selectorScript()}</script>`}
 </body>
 </html>
 `;

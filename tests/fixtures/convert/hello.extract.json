@@ -1,0 +1,8 @@
+{
+  "canvas": { "w": 400, "h": 300 },
+  "nodes": [
+    { "id": "pic", "x": 24, "y": 20, "w": 183, "h": 158, "kind": "image", "src": "images/pic.png" },
+    { "id": "title", "x": 24, "y": 190, "w": 220, "h": 26, "kind": "text", "text": "Converted Title", "fontSize": 18, "color": "rgb(255, 214, 102)" },
+    { "id": "desc", "x": 24, "y": 224, "w": 352, "h": 40, "kind": "text", "text": "HTML to FairyGUI XML conversion POC sample.", "fontSize": 12, "color": "rgb(255, 255, 255)" }
+  ]
+}

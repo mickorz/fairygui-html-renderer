@@ -9,7 +9,8 @@
     "check": "tsx tests/render-check.ts",
     "check:server": "tsx tests/server-check.ts",
     "check:mcp": "tsx tests/mcp-check.ts",
-    "mcp": "tsx src/mcp/main.ts"
+    "mcp": "tsx src/mcp/main.ts",
+    "check:convert": "tsx tests/convert-check.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

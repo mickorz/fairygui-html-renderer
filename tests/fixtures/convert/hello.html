@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; background: #444; }
+  /* F POC 约定：#canvas 为画布根，直接子元素为待转换节点，全部 absolute 定位 */
+  #canvas { position: relative; width: 400px; height: 300px; background: #6a6a6a; }
+  #canvas * { position: absolute; }
+</style>
+</head>
+<body>
+<div id="canvas">
+  <img id="pic" src="images/pic.png" style="left:24px; top:20px; width:183px; height:158px">
+  <div id="title" style="left:24px; top:190px; width:220px; height:26px; font-size:18px; color:#ffd666;">Converted Title</div>
+  <div id="desc" style="left:24px; top:224px; width:352px; height:40px; font-size:12px; color:#ffffff;">HTML to FairyGUI XML conversion POC sample.</div>
+</div>
+</body>
+</html>

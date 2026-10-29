@@ -127,10 +127,14 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, root: 
     }
     const pkg = loadPackage(path.dirname(abs));
     const scene = buildScene(getComponent(abs, { fresh: true }), { pkg, root });
-    const html = renderHtml(scene, {
-      pkg,
-      toAssetUrl: (assetAbs) => `/api/assets/${path.relative(assetsRoot, assetAbs).split(path.sep).join("/")}`,
-    });
+    const html = renderHtml(
+      scene,
+      {
+        pkg,
+        toAssetUrl: (assetAbs) => `/api/assets/${path.relative(assetsRoot, assetAbs).split(path.sep).join("/")}`,
+      },
+      { bare: u.searchParams.get("bare") === "1" },
+    );
     return text(res, 200, html);
   }
 
