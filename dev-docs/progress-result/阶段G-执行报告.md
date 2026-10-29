@@ -37,6 +37,17 @@
 回读对照: 8 节点匹配, 最大偏差 dx=0 dy=0
 ```
 
+## 补充轮次：FlexGrid 语义修正为 GList（用户指出）
+
+原实现把 Flex 网格平铺为 8 个独立节点——像素一致但编辑器不可维护，违背「可编辑性优先」。按用户指出改为 GList：
+
+- **extractor**：连续同结构签名兄弟（≥3）折叠为 list 节点（推断 SDK 词表 layout：单行 row / 单列 column / 多行多列 flow_hz + lineItemCount）
+- **mapper**：list → FGNode（defaultItem 样本映射 + count/layout/lineItemCount）
+- **writer**：defaultItem 抽成 item 组件文件，`<list layout="flow_hz" lineItemCount="4" defaultItem="ui://pkgId+resId">` + N 个 `<item/>`；pkgId 前置生成（defaultItem 引用需要）
+- **渲染器**：list 词表支持（flow_hz/pagination → grid 按 lineItemCount 换列；row/column → flex）；修复 item wrapper 无尺寸问题（子节点 absolute 脱离流，wrapper 显式 defaultItem 尺寸）
+- **依据 SDK**：Migrate.cs `TryResolve`（ui:// 与裸 resId 双形式）、`BuildList` 的 ListSource{itemPrefab, count, itemSize, gaps, lineItemCount}——item 内容运行时从 defaultItem 建项，静态包登记 item 数
+- **验收**：FlexGrid 产物 `layout="flow_hz" lineItemCount="4"` + 8 item + item 组件（背景+文字）；回读 8 实例 grid 4 列×2 行，evaluate_script 逐节点位置/背景/文字精确验证；check:convert 12/12
+
 ## 遗留问题
 
 1. 三新包（Converted/FlexGrid/Nested）的编辑器人工验证待用户（Converted 已在 F 验证过同构机制）

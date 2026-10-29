@@ -36,6 +36,8 @@ interface ImageEntry {
 }
 
 interface WriteState {
+  /** 包 id（前置生成：list 的 defaultItem ui:// 引用需要） */
+  pkgId: string;
   /** 图片 src 的解析基准目录（样本 HTML 所在目录） */
   htmlDir: string;
   /** 组件 XML 的写盘目录（输出包目录） */
@@ -81,6 +83,28 @@ function nodeXml(node: FGNode, state: WriteState, componentRefs: { name: string 
       componentRefs.push({ name: child });
       return `    <component id="n${node.name}" name="${node.name}" src="${state.idByFile.get(child)}" ${geom}${suffix}/>`;
     }
+    case "list": {
+      // GList：defaultItem 抽成 item 组件文件，静态包登记 item 数（内容运行时建项，SDK ListSource 语义）
+      const itemNodes = node.defaultItemNodes ?? [];
+      const itemCompName = `${node.name}_item.xml`;
+      // item 组件尺寸 = defaultItem 节点自身尺寸（GList 语义：item 尺寸由 defaultItem 决定）
+      const itemSizeNode = itemNodes[0];
+      const itemComponent: FGNode = {
+        kind: "component",
+        name: `${node.name}_item`,
+        x: 0,
+        y: 0,
+        w: itemSizeNode?.w ?? node.w,
+        h: itemSizeNode?.h ?? node.h,
+        children: itemNodes,
+      };
+      childComponent(state, itemComponent);
+      const itemId = state.idByFile.get(itemCompName)!;
+      const items = Array.from({ length: node.count ?? 0 }, () => "      <item/>").join("\n");
+      return `    <list id="n${node.name}" name="${node.name}" ${geom} layout="${node.layout ?? "column"}"${node.lineItemCount ? ` lineItemCount="${node.lineItemCount}"` : ""} overflow="scroll" defaultItem="ui://${state.pkgId}${itemId}">
+${items}
+    </list>`;
+    }
   }
 }
 
@@ -125,7 +149,9 @@ export function writePackage(
   if (fs.existsSync(outPkgDir)) throw new Error(`输出包目录已存在（安全边界，不覆盖既有包）: ${outPkgDir}`);
   fs.mkdirSync(outPkgDir, { recursive: true });
 
+  const pkgId = hashId(pkgName) + hashId(pkgName + "pkg").slice(0, 3);
   const state: WriteState = {
+    pkgId,
     htmlDir: opts.htmlDir,
     outDir: outPkgDir,
     imagesDir: path.join(outPkgDir, "images"),
@@ -170,7 +196,6 @@ ${lines.join("\n")}
     .map((e) => `    <image id="${e.id}" name="${e.name}" path="/images/" width="${e.width}" height="${e.height}"/>`)
     .join("\n");
 
-  const pkgId = hashId(pkgName + rootXml.length) + hashId(pkgName).slice(0, 3);
   const packageXml = `<?xml version="1.0" encoding="utf-8"?>
 <packageDescription id="${pkgId}">
   <resources>

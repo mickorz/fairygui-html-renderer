@@ -14,7 +14,12 @@ export interface ExtractNode {
   y: number;
   w: number;
   h: number;
-  kind: "image" | "text" | "graph" | "container";
+  kind: "image" | "text" | "graph" | "container" | "list";
+  /** list 专有：折叠的 item 样本与数量（同结构连续兄弟 >=3 折叠为 GList） */
+  item?: ExtractNode;
+  count?: number;
+  layout?: string;
+  lineItemCount?: number;
   src?: string;
   text?: string;
   fontSize?: number;
@@ -95,9 +100,62 @@ export const EXTRACT_SNIPPET = `
       out.push(node);
     }
   }
+  // 连续同结构签名的兄弟节点（>=3）折叠为 list：编辑器里是可维护的 GList，而非散落节点
+  function signature(n) {
+    return n.kind + "|" + n.w + "x" + n.h + "|" + (n.fontSize || "") + "|" + (n.color || "") + "|" + (n.bgColor || "") + "|" + (n.fillColor || "") + "|" + (n.src || "");
+  }
+  function foldLists(nodes) {
+    var out2 = [];
+    var i = 0;
+    while (i < nodes.length) {
+      var n = nodes[i];
+      var sig = signature(n);
+      var repeatable = n.kind === "text" || n.kind === "image" || n.kind === "graph";
+      var j = i + 1;
+      if (repeatable && sig) {
+        while (j < nodes.length && signature(nodes[j]) === sig) j++;
+      }
+      var count = j - i;
+      // SDK 词表（ListLayout）：column/row/flow_hz/flow_vt/pagination；lineItemCount=每行项数
+      var layout = "column";
+      var lineItemCount = 0;
+      if (count > 1) {
+        var ys = {}, xs = {};
+        for (var k2 = i; k2 < j; k2++) { ys[nodes[k2].y] = 1; xs[nodes[k2].x] = 1; }
+        var rows = Object.keys(ys).length, cols = Object.keys(xs).length;
+        if (rows === 1) { layout = "row"; lineItemCount = count; }
+        else if (cols === 1) { layout = "column"; lineItemCount = 1; }
+        else { layout = "flow_hz"; lineItemCount = cols; }
+      }
+      if (repeatable && count >= 3) {
+        var item = {};
+        for (var k in n) if (Object.prototype.hasOwnProperty.call(n, k)) item[k] = n[k];
+        item.id = "item";
+        out2.push({
+          id: n.id + "_list",
+          kind: "list",
+          x: n.x,
+          y: n.y,
+          w: nodes[j - 1].x + nodes[j - 1].w - n.x,
+          h: nodes[j - 1].y + nodes[j - 1].h - n.y,
+          item: item,
+          count: count,
+          layout: layout,
+          lineItemCount: lineItemCount
+        });
+      } else {
+        if (n.children) n.children = foldLists(n.children);
+        out2.push(n);
+      }
+      i = j;
+    }
+    return out2;
+  }
+
   var canvas = document.getElementById("canvas");
   var out = [];
   walk(canvas, canvas, out);
+  out = foldLists(out);
   var pre = document.createElement("pre");
   pre.id = "__extract__";
   pre.style.display = "none";

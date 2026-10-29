@@ -43,6 +43,8 @@ export interface ParsedNode {
   itemCount?: number;
   /** list 节点按 defaultItem 展开的 item 场景副本（由 buildScene 填充，各项携带自身包） */
   listItems?: { index: number; scene: ParsedComponent; pkg: FairyPackage }[];
+  /** list 单个 item 的尺寸（渲染 wrapper 需要：子节点 absolute 不贡献尺寸） */
+  defaultItemSize?: { w: number; h: number };
   /** component 节点递归展开后的子组件（由 scene-builder 构建填充） */
   childComp?: { file: string; comp: ParsedComponent };
   /** 实例路径（如 BagWin.frame.n2），构建时由 buildScene 填充 */

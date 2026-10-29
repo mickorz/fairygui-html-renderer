@@ -5,7 +5,7 @@ import type { ExtractData, ExtractNode } from "./extractor.js";
 // 容器 div -> component（递归成组件文件）；纯色背景容器先铺 graph 背景；
 // Flex/Grid 等布局无需关心——提取发生在浏览器渲染后，坐标即最终位置。
 
-export type FGKind = "image" | "text" | "graph" | "component";
+export type FGKind = "image" | "text" | "graph" | "component" | "list";
 
 export interface FGNode {
   kind: FGKind;
@@ -24,6 +24,12 @@ export interface FGNode {
   alpha?: number;
   rotation?: number;
   children?: FGNode[];
+  /** list 专有 */
+  count?: number;
+  layout?: string;
+  lineItemCount?: number;
+  defaultItemNodes?: FGNode[];
+  defaultItemSize?: { w: number; h: number };
 }
 
 export interface SkippedItem {
@@ -123,6 +129,25 @@ function mapNode(n: ExtractNode, report: MapReport): FGNode[] {
     case "graph": {
       bump(report, "graph");
       return [{ ...base, kind: "graph", fillColor: toHexColor(n.fillColor) ?? "#808080" }];
+    }
+    case "list": {
+      // GList：item 内容运行时从 defaultItem 建项（SDK ListSource 语义），静态包只登记 item 数
+      bump(report, "list");
+      if (!n.item || !n.count) {
+        report.skipped.push({ id: n.id, reason: "list 缺少 item 样本或数量" });
+        return [];
+      }
+      const rel = { ...n.item, x: 0, y: 0 };
+      const defaultItemNodes = mapNodes([rel], report);
+      return [{
+        ...base,
+        kind: "list",
+        count: n.count,
+        layout: n.layout ?? "column",
+        lineItemCount: n.lineItemCount ?? 1,
+        defaultItemNodes,
+        defaultItemSize: { w: n.item.w, h: n.item.h },
+      }];
     }
     case "container": {
       bump(report, "component");

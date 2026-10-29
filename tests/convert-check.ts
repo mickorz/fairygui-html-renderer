@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { runPipeline } from "../src/convert/transform.js";
 import { toHexColor, readPngSize } from "../src/convert/style-mapper.js";
+import { loadPackage } from "../src/parser/package-parser.js";
+import { getComponent, buildScene } from "../src/scene/scene-builder.js";
 
 // 阶段 G 验收：三样本流水线（提取→映射→写入→回读对照）+ 确定性 id
 // 运行：npm run check:convert
@@ -37,8 +39,24 @@ const flex = runPipeline({
   pkgName: "FlexGrid",
   force: true,
 });
-check("flex：8 文字 + 8 格子背景", flex.report.total === 16 && flex.report.byKind.text === 8 && flex.report.byKind.graph === 8);
-check("flex：回读坐标 0 偏差", flex.validation.ok && flex.validation.maxDx === 0 && flex.validation.maxDy === 0);
+// GList 语义：同结构连续兄弟折叠为 list，item 内容运行时从 defaultItem 建项
+check("flex：识别为 GList（list 计 1）", flex.report.byKind.list === 1 && flex.report.total === 3);
+const flexRoot = fs.readFileSync(path.join(root, "assets", "FlexGrid", "Root.xml"), "utf8");
+check(
+  "flex：GList 形态（flow_hz + lineItemCount=4 + defaultItem + 8 item）",
+  flexRoot.includes('layout="flow_hz"') && flexRoot.includes('lineItemCount="4"') && flexRoot.includes('defaultItem="ui://') && (flexRoot.match(/<item\/>/g) || []).length === 8,
+);
+check("flex：item 组件文件抽出（背景+文字）", fs.existsSync(path.join(root, "assets", "FlexGrid", "div_0_list_item.xml")) && fs.readFileSync(path.join(root, "assets", "FlexGrid", "div_0_list_item.xml"), "utf8").includes("#ff3d6b8f"));
+// 回读展开：渲染器 GList 展开机制（E4）与 writer 产出闭环
+const flexScene = buildScene(
+  getComponent(path.join(root, "assets", "FlexGrid", "Root.xml"), { fresh: true }),
+  { pkg: loadPackage(path.join(root, "assets", "FlexGrid")), root },
+);
+const listNode = flexScene.nodes[0];
+check(
+  "flex：渲染器 GList 展开 8 item",
+  listNode.listItems?.length === 8 && listNode.listItems.every((li) => li.scene.nodes.some((n) => n.attrs.text === "C1")),
+);
 
 // ===== 样本 3：nested（嵌套容器 → 子组件 + 透明度 + 旋转） =====
 const nested = runPipeline({

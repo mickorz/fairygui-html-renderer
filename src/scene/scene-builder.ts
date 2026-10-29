@@ -135,12 +135,15 @@ function expandList(copy: ParsedNode, opts: SceneOptions, ctx: BuildContext): vo
   }
   const itemPkg = loadPackage(hit.pkgDir);
   const itemCount = Math.min(copy.itemCount ?? 0, 200);
+  // GList item 尺寸 = defaultItem 组件的设计尺寸（FairyGUI 语义）
+  const itemComp = getComponent(hit.resource.file, { fresh: true });
+  copy.defaultItemSize = { w: itemComp.size[0], h: itemComp.size[1] };
   copy.listItems = [];
   for (let i = 0; i < itemCount; i++) {
     copy.listItems.push({
       index: i,
       pkg: itemPkg,
-      scene: buildScene(getComponent(hit.resource.file, { fresh: true }), { pkg: itemPkg, root: opts.root }, {
+      scene: buildScene(itemComp, { pkg: itemPkg, root: opts.root }, {
         stack: [...ctx.stack, path.normalize(hit.resource.file)],
         parentPath: `${copy.instancePath}.item${i}`,
         keyPrefix: `${copy.stableKey}#${i}~${itemPkg.id}.${hit.resource.id}`,

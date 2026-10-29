@@ -211,16 +211,27 @@ function renderNode(
       const layout = node.attrs.layout ?? "";
       const colGap = node.attrs.colGap ? `${node.attrs.colGap}px` : "0";
       const lineGap = node.attrs.lineGap ? `${node.attrs.lineGap}px` : "0";
-      const flexDir = layout === "row" ? "row" : "column";
-      const flexWrap = layout === "pagination" ? "flex-wrap:wrap;" : "";
-      const gap = layout === "row" ? `gap:0 ${colGap};` : layout === "pagination" ? `gap:${lineGap} ${colGap};` : `gap:${lineGap} 0;`;
+      // SDK 词表：column/row/flow_hz/flow_vt/pagination；flow_hz 用 grid 按 lineItemCount 换列
+      const lineItems = node.attrs.lineItemCount ? Number(node.attrs.lineItemCount) : 0;
+      const isGrid = layout === "flow_hz" || layout === "pagination";
+      const itemSize = node.defaultItemSize;
       const items = node.listItems
         .map((item) => {
           const inner = renderChildren(item.scene, { pkg: item.pkg, toAssetUrl: ctx.toAssetUrl }, [...stack, `${node.stableKey}#${item.index}`], unsupported, tints);
-          return `<div class="fgui-node" style="position:relative;flex:none">${inner}</div>`;
+          // wrapper 需显式尺寸：子节点全部 absolute 脱离文档流，否则 grid/flex 内不可见
+          const sizeStyle = itemSize ? `width:${itemSize.w}px;height:${itemSize.h}px;` : "";
+          return `<div class="fgui-node" style="position:relative;flex:none;${sizeStyle}">${inner}</div>`;
         })
         .join("");
-      return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};display:flex;flex-direction:${flexDir};${flexWrap}${gap}overflow:hidden">${items}</div>`;
+      let layoutStyle: string;
+      if (isGrid && lineItems > 0) {
+        layoutStyle = `display:grid;grid-template-columns:repeat(${lineItems},max-content);gap:${lineGap} ${colGap};`;
+      } else if (layout === "row") {
+        layoutStyle = `display:flex;flex-direction:row;gap:0 ${colGap};`;
+      } else {
+        layoutStyle = `display:flex;flex-direction:column;gap:${lineGap} 0;`;
+      }
+      return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};${layoutStyle}overflow:hidden">${items}</div>`;
     }
     case "text": {
       const style = [`${gearStyle}${baseStyle(geo, node)}`];
