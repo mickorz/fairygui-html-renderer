@@ -56,4 +56,6 @@ npm run check:convert
 
 1. 编辑器人工验证未完成前，F 不应宣布通过（v3 明确：不能把可行性视作既定事实）
 2. 提取脚本目前依赖 AI 会话内 evaluate_script；G 阶段若需无人值守，再封装 Playwright 提取
-3. registry/ 元数据未生成——若编辑器打开报缺失，补研究其 JSON 格式
+- 编辑器人工验证：✅ 通过（用户实测：编辑器打开 Converted 包、修改两段文本并保存；Hello.xml 被编辑器回写，新增 fileName 扩展属性、属性顺序重排，渲染器回读不受影响，check:convert 回读断言全过）
+- registry 结论：编辑器保存组件不写 registry/（现有条目为工程遗留旧文件），缺失不影响打开/编辑/保存；.objs/workspace.json 记录编辑器工作区状态
+- **F 验收门槛全部达成**：v3 的是「不能把可行性视作既定事实」的保守条款可以解除——F 可行性已被真实编辑器操作证实
