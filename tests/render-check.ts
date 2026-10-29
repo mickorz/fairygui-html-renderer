@@ -65,21 +65,21 @@ const positions = order.map((id) => demoHtml.indexOf(`data-fgui-id="${id}"`));
 check("displayList 全序保持（12 节点）", positions.every((p, i) => p >= 0 && (i === 0 || p > positions[i - 1])));
 
 // ===== A2：构建与缓存分离 =====
-const aComp = getComponent(path.resolve("tests/fixtures/cycle/CycleA.xml"));
+const aComp = getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/CycleA.xml"));
 const a1 = buildScene(aComp, { pkg: fxPkg() });
 function fxPkg() {
-  return loadPackage(path.resolve("tests/fixtures/cycle"));
+  return loadPackage(path.resolve("tests/fixtures/workspace/assets/cycle"));
 }
 // A -> B 正常展开，B 内引用 A 标记循环
 const toB = a1.nodes.find((n) => n.name === "toB");
 check("循环引用标记写入构建副本", !!toB?.childComp && toB.childComp.comp.nodes[0].unsupported?.includes("循环引用") === true);
 // 重复构建幂等：两次构建产物一致
-const a2 = buildScene(getComponent(path.resolve("tests/fixtures/cycle/CycleA.xml")), { pkg: fxPkg() });
+const a2 = buildScene(getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/CycleA.xml")), { pkg: fxPkg() });
 check("重复构建幂等", JSON.stringify(a1) === JSON.stringify(a2));
 // 缓存内原始解析结果无残留（未被 buildScene 污染）
 check("缓存原始树未被污染", aComp.nodes.every((n) => !n.unsupported && !n.childComp));
 // 不同入口：直接构建 B，其引用 A 正常展开，A 内引用 B 标记循环（视角隔离）
-const b1 = buildScene(getComponent(path.resolve("tests/fixtures/cycle/CycleB.xml")), { pkg: fxPkg() });
+const b1 = buildScene(getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/CycleB.xml")), { pkg: fxPkg() });
 check("不同入口构建不受残留影响", !!b1.nodes[0].childComp && b1.nodes[0].childComp.comp.nodes[0].unsupported?.includes("循环引用") === true);
 
 // ===== A3：唯一实例键 =====
@@ -88,21 +88,22 @@ const n4Key = "rbw1tv9t.kcy10.n7~rbw1tv9t.dwwc3.n2~rbw1tv9t.dwwc4.n4";
 check("实例链稳定键三层穿透", bagHtml.includes(`data-fgui-key="${n4Key}"`));
 // 同名节点：Dup.xml 两个 name="dup"（id 不同）-> 键不同
 const dupHtml = renderHtml(
-  buildScene(getComponent(path.resolve("tests/fixtures/cycle/Dup.xml")), { pkg: fxPkg() }),
+  buildScene(getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/Dup.xml")), { pkg: fxPkg() }),
   { pkg: fxPkg(), toAssetUrl: (f) => f },
 );
 check("同名节点键不同", dupHtml.includes('data-fgui-key="test01.c_c.d1"') && dupHtml.includes('data-fgui-key="test01.c_c.d2"'));
 check("可读 path 与稳定键并存", dupHtml.includes('data-fgui-path="Dup.dup"') && (dupHtml.match(/data-fgui-key=/g) || []).length >= 2);
 // resourceIdOf 反查
 check("resourceIdOf 反查组件资源 id", resourceIdOf(pkg, path.resolve("CC-Default/assets/Bag/BagWin.xml")) === "kcy10");
+check("cycle 包结构就位（workspace/assets 布局）", fxPkg().id === "test01");
 
 // ===== A4：缓存失效接口 =====
-const cached1 = getComponent(path.resolve("tests/fixtures/cycle/CycleA.xml"));
+const cached1 = getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/CycleA.xml"));
 clearCache();
-const cached2 = getComponent(path.resolve("tests/fixtures/cycle/CycleA.xml"));
+const cached2 = getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/CycleA.xml"));
 check("clearCache 后重新解析（新对象）", cached1 !== cached2);
-const fresh1 = getComponent(path.resolve("tests/fixtures/cycle/CycleA.xml"));
-const fresh2 = getComponent(path.resolve("tests/fixtures/cycle/CycleA.xml"), { fresh: true });
+const fresh1 = getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/CycleA.xml"));
+const fresh2 = getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/CycleA.xml"), { fresh: true });
 check("fresh 选项绕过缓存", fresh1 !== fresh2);
 
 if (failed > 0) {

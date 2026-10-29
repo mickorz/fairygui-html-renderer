@@ -1,8 +1,6 @@
 import path from "node:path";
 import type { ParsedComponent, ParsedNode, Gear } from "../parser/component-parser.js";
 import type { FairyPackage, ImageResource } from "../parser/package-parser.js";
-import { resourceIdOf } from "../parser/package-parser.js";
-import { getComponent } from "../scene/scene-builder.js";
 import { selectorScript } from "../selection/component-selector.js";
 
 // 场景树 -> 静态 HTML 渲染器
@@ -90,9 +88,10 @@ function baseStyle(geo: Geo, node: ParsedNode): string {
   return parts.join(";");
 }
 
-function dataAttrs(node: ParsedNode, file: string, instancePath: string, stableKey: string): string {
+function dataAttrs(node: ParsedNode, file: string): string {
   const src = file.split(path.sep).join("/");
-  return `data-fgui-id="${esc(node.id)}" data-fgui-name="${esc(node.name)}" data-fgui-src="${esc(src)}" data-fgui-type="${esc(node.type)}" data-fgui-path="${esc(instancePath)}" data-fgui-key="${esc(stableKey)}"`;
+  // instancePath / stableKey 由 buildScene 构建时填充（与 Scene Tree JSON 共用同一份数据）
+  return `data-fgui-id="${esc(node.id)}" data-fgui-name="${esc(node.name)}" data-fgui-src="${esc(src)}" data-fgui-type="${esc(node.type)}" data-fgui-path="${esc(node.instancePath ?? "")}" data-fgui-key="${esc(node.stableKey ?? "")}"`;
 }
 
 /** 收集 image 染色需要的 SVG filter 定义（乘法染色） */
@@ -127,15 +126,10 @@ function renderNode(
   stack: string[],
   unsupported: UnsupportedItem[],
   tints: Set<string>,
-  parentPath: string,
-  keyPrefix: string,
 ): string {
   const { hidden, geo } = resolveGear(node, comp);
   const gearStyle = hidden ? "visibility:hidden;" : "";
-  // 实例路径：父路径 + 节点名（无名用 id）；稳定键：实例链 pkgId.resId.nodeId，同资源多实例/同名节点可区分
-  const instancePath = `${parentPath}.${node.name || node.id}`;
-  const stableKey = `${keyPrefix}.${node.id}`;
-  const attrs = dataAttrs(node, comp.file, instancePath, stableKey);
+  const attrs = dataAttrs(node, comp.file);
 
   const tintStyle = (attr: string | undefined): string => {
     if (!attr || !attr.startsWith("#")) return "";
@@ -159,10 +153,8 @@ function renderNode(
       const child = node.childComp.comp;
       // 尺寸：节点未指定时用子组件自身设计尺寸
       if (!geo.size) geo.size = child.size;
-      // 嵌套容器：子节点 absolute 定位相对本容器；子层稳定键以子组件资源 id 续接
-      const childResId = resourceIdOf(ctx.pkg, node.childComp.file) ?? path.basename(node.childComp.file, ".xml");
-      const childKeyPrefix = `${stableKey}~${ctx.pkg.id}.${childResId}`;
-      const inner = renderChildren(child, ctx, [...stack, node.childComp.file], unsupported, tints, instancePath, childKeyPrefix);
+      // 嵌套容器：子节点 absolute 定位相对本容器（path/key 已由 buildScene 填充）
+      const inner = renderChildren(child, ctx, [...stack, node.childComp.file], unsupported, tints);
       return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)}">${inner}</div>`;
     }
     case "image": {
@@ -219,19 +211,15 @@ function renderChildren(
   stack: string[],
   unsupported: UnsupportedItem[],
   tints: Set<string>,
-  parentPath: string,
-  keyPrefix: string,
 ): string {
-  return comp.nodes.map((n) => renderNode(n, comp, ctx, stack, unsupported, tints, parentPath, keyPrefix)).join("\n    ");
+  return comp.nodes.map((n) => renderNode(n, comp, ctx, stack, unsupported, tints)).join("\n    ");
 }
 
 /** 渲染组件为完整静态 HTML（先经 scene-builder 构建子组件树） */
 export function renderHtml(comp: ParsedComponent, ctx: RenderContext): string {
   const unsupported: UnsupportedItem[] = [];
   const tints = new Set<string>();
-  const rootPath = path.basename(comp.file, ".xml");
-  const rootResId = resourceIdOf(ctx.pkg, comp.file) ?? rootPath;
-  const inner = renderChildren(comp, ctx, [path.normalize(comp.file)], unsupported, tints, rootPath, `${ctx.pkg.id}.${rootResId}`);
+  const inner = renderChildren(comp, ctx, [path.normalize(comp.file)], unsupported, tints);
 
   const listHtml = unsupported.length
     ? `<div class="unsupported-list">未支持 ${unsupported.length} 项: ${unsupported

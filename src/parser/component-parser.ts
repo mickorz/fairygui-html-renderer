@@ -38,6 +38,10 @@ export interface ParsedNode {
   gears: Gear[];
   /** component 节点递归展开后的子组件（由 scene-builder 构建填充） */
   childComp?: { file: string; comp: ParsedComponent };
+  /** 实例路径（如 BagWin.frame.n2），构建时由 buildScene 填充 */
+  instancePath?: string;
+  /** 稳定键（实例链 pkgId.resId.nodeId~...），构建时由 buildScene 填充，同资源多实例/同名节点可区分 */
+  stableKey?: string;
   /** P0/P1 未支持的类型/属性原因（渲染时占位并上报） */
   unsupported?: string;
 }

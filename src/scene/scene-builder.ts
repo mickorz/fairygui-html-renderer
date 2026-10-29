@@ -1,10 +1,11 @@
 import path from "node:path";
 import { parseComponent, type ParsedComponent, type ParsedNode } from "../parser/component-parser.js";
-import type { FairyPackage } from "../parser/package-parser.js";
+import { resourceIdOf, type FairyPackage } from "../parser/package-parser.js";
 
 // 场景树构建：递归展开 component 节点引用的子组件 XML
 // A2：构建与缓存分离——getComponent 缓存的解析结果视为不可变原始数据，
 // buildScene 每次生成全新节点对象（副本），循环标记等状态只写入副本，不污染缓存。
+// B1：instancePath / stableKey 在构建时统一填充，渲染器与 Scene Tree JSON 共用同一份数据。
 
 const compCache = new Map<string, ParsedComponent>();
 
@@ -35,30 +36,54 @@ export interface SceneOptions {
   onCycle?: (file: string, stack: string[]) => void;
 }
 
+/** 递归上下文：调用方（如服务）不传即视为根组件 */
+interface BuildContext {
+  stack: string[];
+  parentPath: string;
+  keyPrefix: string;
+}
+
 /**
  * 递归构建场景树：component 节点的 src 解析为子组件并展开。
  * 每次调用生成全新节点副本（含子组件递归副本），缓存内原始树不被修改。
- * stack 为当前递归链上的组件 XML 路径，用于检测循环引用。
+ * 同时为每个节点填充 instancePath（可读定位）与 stableKey（唯一实例键）。
  */
-export function buildScene(comp: ParsedComponent, opts: SceneOptions, stack: string[] = []): ParsedComponent {
-  // 当前组件根入栈：自引用（A 引 A）与互相引用均能在首次重现处截断
-  const fullStack = [path.normalize(comp.file), ...stack];
+export function buildScene(comp: ParsedComponent, opts: SceneOptions, ctx?: BuildContext): ParsedComponent {
+  const file = path.normalize(comp.file);
+  const stack = ctx ? ctx.stack : [];
+  const fullStack = [file, ...stack];
+  const parentPath = ctx ? ctx.parentPath : path.basename(comp.file, ".xml");
+  const rootResId = resourceIdOf(opts.pkg, comp.file) ?? path.basename(comp.file, ".xml");
+  const keyPrefix = ctx ? ctx.keyPrefix : `${opts.pkg.id}.${rootResId}`;
+
   const nodes: ParsedNode[] = comp.nodes.map((node) => {
     // 逐节点副本：与缓存内对象断开可变引用
     const copy: ParsedNode = { ...node, attrs: { ...node.attrs }, gears: node.gears.map((g) => ({ ...g })) };
+    copy.instancePath = `${parentPath}.${copy.name || copy.id}`;
+    copy.stableKey = `${keyPrefix}.${copy.id}`;
     if (copy.type !== "component" || !copy.src) return copy;
     const res = opts.pkg.byId(copy.src);
     if (!res || res.kind !== "component") {
       copy.unsupported = `component 引用资源 ${copy.src ?? "?"} 未找到`;
       return copy;
     }
-    const file = path.normalize(res.file);
-    if (fullStack.includes(file)) {
-      copy.unsupported = `循环引用: ${path.basename(file)}`;
-      opts.onCycle?.(file, fullStack);
+    const childFile = path.normalize(res.file);
+    if (fullStack.includes(childFile)) {
+      copy.unsupported = `循环引用: ${path.basename(childFile)}`;
+      opts.onCycle?.(childFile, fullStack);
       return copy;
     }
-    copy.childComp = { file, comp: buildScene(getComponent(file), opts, [...fullStack, file]) };
+    // 子层稳定键以子组件资源 id 续接：...~pkgId.resId（层间 ~ 避开 HTML 属性转义）
+    const childResId = resourceIdOf(opts.pkg, childFile) ?? path.basename(childFile, ".xml");
+    const childKeyPrefix = `${copy.stableKey}~${opts.pkg.id}.${childResId}`;
+    copy.childComp = {
+      file: childFile,
+      comp: buildScene(getComponent(childFile), opts, {
+        stack: [...fullStack, childFile],
+        parentPath: copy.instancePath,
+        keyPrefix: childKeyPrefix,
+      }),
+    };
     return copy;
   });
   return { ...comp, nodes };

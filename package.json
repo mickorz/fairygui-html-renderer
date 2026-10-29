@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "render": "tsx src/poc/render.ts",
-    "check": "tsx tests/render-check.ts"
+    "serve": "tsx src/server/main.ts",
+    "check": "tsx tests/render-check.ts",
+    "check:server": "tsx tests/server-check.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
