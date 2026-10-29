@@ -20,6 +20,8 @@ export interface ImageResource {
   height?: number;
   /** 九宫格 "x,y,w,h"（P1 用于 border-image） */
   scale9grid?: string;
+  /** 缩放模式：9grid / tile 等 */
+  scale?: string;
 }
 
 export interface ComponentResource {
@@ -73,6 +75,7 @@ export function loadPackage(pkgDir: string): FairyPackage {
           width: e.width !== undefined ? Number(e.width) : undefined,
           height: e.height !== undefined ? Number(e.height) : undefined,
           scale9grid: e.scale9grid,
+          scale: e.scale,
         });
       } else if (tag === "component") {
         resources.push({ kind: "component", id: e.id, name: e.name, file, exported: e.exported === "true" });
