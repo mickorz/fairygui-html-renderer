@@ -56,6 +56,16 @@
    - 若无记录，解决完成后再将完整过程沉淀为新文档。
 3. 经验文档建议结构：**问题现象 → 排查过程 → 根因 → 解决方案 → 预防/注意事项**，文件名体现问题关键词，例如 `node-version-conflict.md`。
 
+## XML 解析参考规范
+
+遇到 FairyGUI XML 格式问题（属性语义、gear 系列 values/pages 编码、扩展组件子元素、未知类型等）时，
+**第一步先查 `thirdparties/OpenFairy-SDK-uGUI` 源码**（`Assets/Plugins/OpenFairy/` 下 Editor 与 Runtime），
+确认它是否已有同类解析实现，直接参考其行为后再写代码，不要靠猜测。
+
+- 依据：gearSize/gearXY/gearColor 的 values 编码（`|` 分页、逗号分分量、`-` 用 default）即从该 SDK 源码验证破解；
+  早期靠猜曾误判 gearColor「编码不匹配」。
+- 注意：该仓库无 LICENSE，只参考解析行为与格式知识，禁止复制源码。
+
 ## 示例目录：`dev-examples/` —— 开发期沙盒
 
 1. 开发中的脚本试验、联调配置与临时输出一律放 `dev-examples/`（一主题一子目录，kebab-case），
