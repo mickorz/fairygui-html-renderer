@@ -11,6 +11,13 @@ export const indexHtml = `<!doctype html>
 body { margin:0; font-family:sans-serif; background:#222; color:#ddd; display:flex; height:100vh; }
 #side { width:260px; min-width:260px; background:#2b2b2b; border-right:1px solid #444; overflow:auto; padding:10px; }
 #side h1 { font-size:14px; color:#8ee6ff; margin:4px 0 10px; }
+#search { width:100%; background:#1e1e1e; color:#ddd; border:1px solid #444; border-radius:4px; padding:6px 8px; font-size:12px; margin-bottom:6px; }
+#results { border-bottom:1px solid #444; margin-bottom:8px; max-height:40vh; overflow:auto; }
+#results button { display:block; width:100%; text-align:left; background:transparent; color:#bbb; border:none; border-bottom:1px solid #333; padding:4px 6px; cursor:pointer; font-size:11px; }
+#results button:hover, #results button.active { color:#ffd666; background:#2f2f2f; }
+#results .r-path { color:#ddd; }
+#results .r-meta { color:#888; font-size:10px; }
+#results .empty { color:#777; font-size:11px; padding:4px 6px; }
 .pkg { margin:2px 0; }
 .pkg > button { width:100%; text-align:left; background:#333; color:#ddd; border:1px solid #444; border-radius:4px; padding:6px 8px; cursor:pointer; }
 .pkg > button:hover { background:#3a3a3a; }
@@ -26,6 +33,8 @@ body { margin:0; font-family:sans-serif; background:#222; color:#ddd; display:fl
 <body>
 <div id="side">
   <h1>FairyGUI 工作区</h1>
+  <input id="search" placeholder="搜索组件名 / ID / 路径..." autocomplete="off">
+  <div id="results"></div>
   <div id="pkgs">加载中...</div>
 </div>
 <div id="main">
@@ -36,6 +45,51 @@ body { margin:0; font-family:sans-serif; background:#222; color:#ddd; display:fl
 var pkgsEl = document.getElementById("pkgs");
 var crumb = document.getElementById("crumb");
 var frame = document.getElementById("frame");
+var searchEl = document.getElementById("search");
+var resultsEl = document.getElementById("results");
+
+// ===== 搜索（阶段 C）：输入防抖后调 /api/search，结果点击 -> /view&focus= 深度定位 =====
+var searchTimer = null;
+searchEl.addEventListener("input", function () {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(doSearch, 300);
+});
+
+function doSearch() {
+  var q = searchEl.value.trim();
+  if (!q) { resultsEl.innerHTML = ""; return; }
+  fetch("/api/search?q=" + encodeURIComponent(q))
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      resultsEl.innerHTML = "";
+      if (!data.results.length) {
+        var e = document.createElement("div");
+        e.className = "empty";
+        e.textContent = "无匹配";
+        resultsEl.appendChild(e);
+        return;
+      }
+      data.results.forEach(function (hit) {
+        var b = document.createElement("button");
+        b.innerHTML = '<span class="r-path"></span><br><span class="r-meta"></span>';
+        b.querySelector(".r-path").textContent = hit.path;
+        b.querySelector(".r-meta").textContent = hit.type + " | " + hit.component + (hit.unsupported ? " | " + hit.unsupported : "");
+        b.onclick = function () {
+          resultsEl.querySelectorAll("button").forEach(function (x) { x.classList.remove("active"); });
+          b.classList.add("active");
+          crumb.textContent = "定位: " + hit.path + "  |  " + hit.component;
+          frame.src = "/view?component=" + encodeURIComponent(hit.component) + "&focus=" + encodeURIComponent(hit.key);
+        };
+        resultsEl.appendChild(b);
+      });
+      if (data.truncated) {
+        var t = document.createElement("div");
+        t.className = "empty";
+        t.textContent = "结果已截断（50 条上限）";
+        resultsEl.appendChild(t);
+      }
+    });
+}
 
 function renderProject(data) {
   pkgsEl.innerHTML = "";

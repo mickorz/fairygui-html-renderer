@@ -41,6 +41,29 @@ export function selectorScript(): string {
       if (info) info.textContent = "已取消选择";
     }
   });
+
+  // 深度定位：/view?component=X&focus=<stableKey>，加载即高亮目标节点并滚动到可视区
+  var focusKey = new URLSearchParams(location.search).get("focus");
+  if (focusKey) {
+    var el = document.querySelector('[data-fgui-key="' + focusKey + '"]');
+    if (el) {
+      el.classList.add("fgui-selected");
+      selected = el;
+      el.scrollIntoView({ block: "center" });
+      var fd = {
+        id: el.dataset.fguiId,
+        name: el.dataset.fguiName,
+        type: el.dataset.fguiType,
+        path: el.dataset.fguiPath,
+        key: el.dataset.fguiKey,
+        source: el.dataset.fguiSrc
+      };
+      if (info) info.textContent = "定位: " + JSON.stringify(fd);
+      console.log("[fgui-focus]", fd);
+    } else if (info) {
+      info.textContent = "未找到 focus 节点: " + focusKey;
+    }
+  }
 })();
 `;
 }

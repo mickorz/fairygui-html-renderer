@@ -72,7 +72,9 @@ try {
     return ns.reduce((acc, n) => acc + 1 + (n.children ? countNodes(n.children as { children?: unknown[] }[]) : 0), 0);
   }
   const sceneNodeCount = countNodes(sceneData.nodes);
-  const domKeyCount = (view.body.match(/data-fgui-key="/g) || []).length;
+  // 排除内联脚本后计数（selectorScript 中含 data-fgui-key 字面量）
+  const viewMarkup = view.body.replace(/<script>[\s\S]*?<\/script>/, "");
+  const domKeyCount = (viewMarkup.match(/data-fgui-key="/g) || []).length;
   check("scene JSON 节点数与渲染 DOM 一致", view.status === 200 && sceneNodeCount === domKeyCount, `scene=${sceneNodeCount} dom=${domKeyCount}`);
 
   // ===== 4. 安全：路径边界 =====
@@ -122,9 +124,37 @@ try {
     const cliKeys = keySeq(cliHtml).join("|");
     const srvKeys = keySeq(serverBody).join("|");
     check("双模式渲染节点序列一致（CLI vs 服务）", serverView.status === 200 && cliKeys.length > 0 && cliKeys === srvKeys);
+
+    // ===== 阶段 C：搜索与深度定位 =====
+    const sClose = await fetch(`http://127.0.0.1:${ccPort}/api/search?q=closebutton`);
+    const closeData = JSON.parse(await sClose.text()) as { results: { path: string; component: string; key: string }[] };
+    check(
+      "搜索 closeButton 命中嵌套三层",
+      sClose.status === 200 && closeData.results.some((r) => r.path === "BagWin.frame.closeButton" && r.component === "Bag/BagWin.xml"),
+    );
+    check("子节点随父路径命中（n4）", closeData.results.some((r) => r.path === "BagWin.frame.closeButton.n4"));
+
+    const n4Key = "rbw1tv9t.kcy10.n7~rbw1tv9t.dwwc3.n2~rbw1tv9t.dwwc4.n4";
+    const vFocus = await fetch(`http://127.0.0.1:${ccPort}/view?component=` + encodeURIComponent("Bag/BagWin.xml") + "&focus=" + encodeURIComponent(n4Key));
+    const vFocusBody = await vFocus.text();
+    check(
+      "view focus 深度定位（脚本注入 + 目标节点存在）",
+      vFocus.status === 200 && vFocusBody.includes("fgui-focus") && vFocusBody.includes(`data-fgui-key="${n4Key}"`),
+    );
   } finally {
     ccServer.close();
   }
+
+  // ===== 阶段 C：同名节点多结果（workspace 服务实例） =====
+  const sDup = await get("/api/search?q=dup");
+  const dupData = JSON.parse(sDup.body) as { results: { path: string; key: string }[] };
+  check(
+    "搜索同名节点多结果可切换",
+    sDup.status === 200 && dupData.results.length === 2 && dupData.results[0].key !== dupData.results[1].key && dupData.results.every((r) => r.path === "Dup.dup"),
+  );
+
+  const sEmpty = await get("/api/search?q=zzznope");
+  check("无匹配返回空结果", sEmpty.status === 200 && JSON.parse(sEmpty.body).results.length === 0);
 } finally {
   server.close();
 }

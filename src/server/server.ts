@@ -3,6 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { loadPackage } from "../parser/package-parser.js";
 import { getComponent, buildScene, clearCache } from "../scene/scene-builder.js";
+import type { ParsedNode } from "../parser/component-parser.js";
 import { toSceneJson } from "../scene/scene-json.js";
 import { renderHtml } from "../renderer/html-renderer.js";
 import { indexHtml } from "./index-html.js";
@@ -53,6 +54,59 @@ function listPackages(root: string): { name: string; id: string; dir: string }[]
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+export interface SearchHit {
+  component: string;
+  type: string;
+  id: string;
+  name: string;
+  path: string;
+  key: string;
+  unsupported?: string;
+}
+
+const SEARCH_LIMIT = 50;
+
+/** 递归收集匹配节点：name / id / 可读路径不区分大小写子串匹配 */
+function collectMatches(nodes: ParsedNode[], q: string, component: string, out: SearchHit[]): void {
+  for (const n of nodes) {
+    if (out.length >= SEARCH_LIMIT) return;
+    const hit =
+      n.name.toLowerCase().includes(q) ||
+      n.id.toLowerCase().includes(q) ||
+      (n.instancePath ?? "").toLowerCase().includes(q);
+    if (hit) {
+      out.push({
+        component,
+        type: n.type,
+        id: n.id,
+        name: n.name,
+        path: n.instancePath ?? "",
+        key: n.stableKey ?? "",
+        unsupported: n.unsupported,
+      });
+    }
+    if (n.childComp) collectMatches(n.childComp.comp.nodes, q, component, out);
+  }
+}
+
+/** 全工程实时搜索（每次请求扫描全部包组件；本地工程量级下毫秒级，变慢再引入缓存） */
+function searchWorkspace(root: string, q: string): { query: string; total: number; truncated: boolean; results: SearchHit[] } {
+  const results: SearchHit[] = [];
+  for (const pkgs of listPackages(root)) {
+    if (results.length >= SEARCH_LIMIT) break;
+    const pkg = loadPackage(path.join(root, pkgs.dir));
+    for (const r of pkg.resources) {
+      if (results.length >= SEARCH_LIMIT) break;
+      if (r.kind !== "component") continue;
+      const component = `${pkgs.name}/${r.name}`;
+      // fresh：搜索应反映磁盘最新内容
+      const scene = buildScene(getComponent(r.file, { fresh: true }), { pkg });
+      collectMatches(scene.nodes, q, component, results);
+    }
+  }
+  return { query: q, total: results.length, truncated: results.length >= SEARCH_LIMIT, results };
+}
+
 function json(res: http.ServerResponse, status: number, data: unknown): void {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(data));
@@ -87,6 +141,13 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, root: 
   // 工程信息 + 包列表
   if (p === "/api/project") {
     return json(res, 200, { root: path.basename(root), packages: listPackages(root) });
+  }
+
+  // 全工程搜索（阶段 C）：节点 name / id / 可读路径
+  if (p === "/api/search") {
+    const q = (u.searchParams.get("q") ?? "").trim().toLowerCase();
+    if (!q) return json(res, 200, { query: q, total: 0, truncated: false, results: [] });
+    return json(res, 200, searchWorkspace(root, q));
   }
 
   // 包内组件清单
