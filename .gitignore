@@ -10,3 +10,6 @@ CC-Default/
 
 # 渲染产物输出
 demo/
+
+# 开发期沙盒（运行产物与过程试验，不进 git；规范见 dev-examples/README.md）
+dev-examples/
