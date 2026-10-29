@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="100,100">
+  <displayList>
+    <component id="n1" name="toB" src="c_b" xy="0,0"/>
+    <text id="n2" name="a_text" xy="0,0" size="50,20" text="A"/>
+  </displayList>
+</component>

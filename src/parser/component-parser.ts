@@ -1,13 +1,15 @@
 import { readFileSync } from "node:fs";
 import { XMLParser } from "fast-xml-parser";
-import { asArray } from "./package-parser.js";
 
-// FairyGUI 组件 XML 解析：提取 displayList 节点、controller 与 gear（原版编辑器格式）
+// FairyGUI 组件 XML 解析（有序模式）
+// A1：使用 preserveOrder 保留 displayList 原始混排顺序——绘制层级（z 序）依赖 XML 顺序，
+// 不能按标签聚合（聚合会让同类节点全部前置，破坏遮挡关系）。
 
 const parser = new XMLParser({
+  preserveOrder: true,
   ignoreAttributes: false,
   attributeNamePrefix: "",
-  parseAttributeValue: false,
+  trimValues: true,
 });
 
 export interface Gear {
@@ -34,7 +36,7 @@ export interface ParsedNode {
   attrs: Record<string, string>;
   /** 节点上的 gearXxx 子元素 */
   gears: Gear[];
-  /** component 节点递归展开后的子组件（由 scene-builder 填充） */
+  /** component 节点递归展开后的子组件（由 scene-builder 构建填充） */
   childComp?: { file: string; comp: ParsedComponent };
   /** P0/P1 未支持的类型/属性原因（渲染时占位并上报） */
   unsupported?: string;
@@ -52,7 +54,34 @@ export interface ParsedComponent {
   /** 组件扩展类型（Button/Label/ComboBox 等） */
   extension?: string;
   controllers: Controller[];
+  /** displayList 节点，保持 XML 原始顺序 */
   nodes: ParsedNode[];
+}
+
+// ---- preserveOrder 输出的遍历辅助 ----
+// 每个元素形如 { 标签名: 子内容 }，属性挂在同对象 { ":@": { 属性名: 值 } }
+
+type OrderItem = Record<string, unknown>;
+
+function tagOf(item: OrderItem): string {
+  return Object.keys(item).find((k) => k !== ":@") ?? "";
+}
+
+function attrsOf(item: OrderItem): Record<string, string> {
+  return (item[":@"] as Record<string, string> | undefined) ?? {};
+}
+
+function childrenOf(item: OrderItem, tag: string): OrderItem[] {
+  const v = item[tag];
+  return Array.isArray(v) ? (v as OrderItem[]) : [];
+}
+
+function findAll(items: OrderItem[], tag: string): OrderItem[] {
+  return items.filter((i) => tagOf(i) === tag);
+}
+
+function findFirst(items: OrderItem[], tag: string): OrderItem | undefined {
+  return items.find((i) => tagOf(i) === tag);
 }
 
 function parsePair(s: string | undefined): [number, number] | undefined {
@@ -68,61 +97,71 @@ const GEAR_KINDS: { tag: string; kind: Gear["kind"] }[] = [
   { tag: "gearSize", kind: "size" },
 ];
 
-function parseGears(e: Record<string, unknown>): Gear[] {
+/** 解析节点内容数组中的 gearXxx 子元素 */
+function parseGears(inner: OrderItem[]): Gear[] {
   const gears: Gear[] = [];
-  for (const { tag, kind } of GEAR_KINDS) {
-    const g = e[tag] as { controller?: string; pages?: string; values?: string; default?: string } | undefined;
-    if (!g) continue;
+  for (const g of inner) {
+    const tag = tagOf(g);
+    const spec = GEAR_KINDS.find((k) => k.tag === tag);
+    if (!spec) continue;
+    const a = attrsOf(g);
     gears.push({
-      kind,
-      controller: g.controller ?? "",
-      pages: String(g.pages ?? "").split(",").filter((v) => v !== ""),
-      values: g.values !== undefined ? String(g.values).split("|") : undefined,
-      default: g.default,
+      kind: spec.kind,
+      controller: a.controller ?? "",
+      pages: String(a.pages ?? "").split(",").filter((v) => v !== ""),
+      values: a.values !== undefined ? String(a.values).split("|") : undefined,
+      default: a.default,
     });
   }
   return gears;
 }
 
-/** 解析组件 XML 文件 */
+/** 解析组件 XML 文件（displayList 保持原始顺序） */
 export function parseComponent(xmlFile: string): ParsedComponent {
-  const doc = parser.parse(readFileSync(xmlFile, "utf8"));
-  const comp = doc.component;
-  if (!comp) throw new Error(`${xmlFile} 缺少 component 根节点`);
+  const doc = parser.parse(readFileSync(xmlFile, "utf8")) as OrderItem[];
+  const compItem = findFirst(doc, "component");
+  if (!compItem) throw new Error(`${xmlFile} 缺少 component 根节点`);
+  const compAttrs = attrsOf(compItem);
+  const compChildren = childrenOf(compItem, "component");
 
-  const controllers: Controller[] = asArray<Record<string, string>>(comp.controller as Record<string, string>).map((c) => {
-    const pairs = String(c.pages ?? "").split(",").filter(Boolean);
+  const controllers: Controller[] = findAll(compChildren, "controller").map((c) => {
+    const a = attrsOf(c);
+    const pairs = String(a.pages ?? "").split(",").filter(Boolean);
     // pages 是 id,name 交替：偶数位为页 id
     const pageIds = pairs.filter((_, i) => i % 2 === 0);
-    return { name: c.name, pageIds, selected: c.selected ?? pageIds[0] ?? "" };
+    return { name: a.name, pageIds, selected: a.selected ?? pageIds[0] ?? "" };
   });
 
+  // displayList 下的子项顺序即 XML 原始顺序（混排的 image/text/graph/component ...）
+  const dlItem = findFirst(compChildren, "displayList");
   const nodes: ParsedNode[] = [];
-  const displayList = comp.displayList ?? {};
-  // displayList 下按标签名混排：image / text / graph / component / list ...
-  for (const [tag, list] of Object.entries(displayList)) {
-    for (const e of asArray<Record<string, string>>(list as Record<string, string>)) {
+  if (dlItem) {
+    for (const item of childrenOf(dlItem, "displayList")) {
+      const type = tagOf(item);
+      if (!type || type === ":@") continue;
+      const e = attrsOf(item);
       const node: ParsedNode = {
-        type: tag,
+        type,
         id: e.id ?? "",
         name: e.name ?? e.id ?? "",
         xy: parsePair(e.xy) ?? [0, 0],
         size: parsePair(e.size),
         src: e.src,
         attrs: e,
-        gears: parseGears(e),
+        gears: parseGears(childrenOf(item, type)),
       };
-      if (!KNOWN_TYPES.has(tag)) {
-        node.unsupported = `节点类型 ${tag} 未支持`;
+      if (!KNOWN_TYPES.has(type)) {
+        node.unsupported = `节点类型 ${type} 未支持`;
       }
       nodes.push(node);
     }
   }
 
+  const ext = compAttrs.extention ?? compAttrs.extension;
   return {
     file: xmlFile,
-    size: parsePair(comp.size) ?? [0, 0],
-    extension: comp.extention ?? comp.extension,
+    size: parsePair(compAttrs.size) ?? [0, 0],
+    extension: ext,
     controllers,
     nodes,
   };

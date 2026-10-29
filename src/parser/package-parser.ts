@@ -88,3 +88,9 @@ export function loadPackage(pkgDir: string): FairyPackage {
   const index = new Map(resources.map((r) => [r.id, r]));
   return { dir: pkgDir, id: desc.id, resources, byId: (id) => index.get(id) };
 }
+
+/** 按组件 XML 文件路径反查其在包内的资源 id（唯一键构建用）；未登记返回 undefined */
+export function resourceIdOf(pkg: FairyPackage, xmlFile: string): string | undefined {
+  const norm = path.normalize(xmlFile);
+  return pkg.resources.find((r) => path.normalize(r.file) === norm)?.id;
+}

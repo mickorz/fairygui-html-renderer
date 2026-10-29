@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="100,100">
+  <displayList>
+    <component id="m1" name="toA" src="c_a" xy="0,0"/>
+    <image id="m2" name="b_img" src="nope" xy="1,1"/>
+  </displayList>
+</component>

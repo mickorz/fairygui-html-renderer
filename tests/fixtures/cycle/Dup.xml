@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="50,50">
+  <displayList>
+    <text id="d1" name="dup" xy="0,0" size="20,10" text="1"/>
+    <text id="d2" name="dup" xy="1,1" size="20,10" text="2"/>
+  </displayList>
+</component>
