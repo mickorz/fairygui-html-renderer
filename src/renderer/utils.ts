@@ -88,7 +88,8 @@ export function nineSliceStyle(res: ImageResource, ctx: RenderContext): string |
   return [
     // 单引号：style 属性由双引号包裹，CSS url 内用单引号避免截断 HTML 属性（老 bug：workspace 下九宫格图全失效）
     `border-image-source:url('${ctx.toAssetUrl(res.file)}')`,
-    `border-image-slice:${y} ${right} ${bottom} ${x}`,
+    // fill 关键字：CSS border-image 默认不画中心，FairyGUI 九宫格画中心（中心拉伸）——漏 fill 会镂空露出 stage 底色
+    `border-image-slice:${y} ${right} ${bottom} ${x} fill`,
     `border-image-width:${y}px ${right}px ${bottom}px ${x}px`,
     `border-image-repeat:${repeat}`,
   ].join(";");

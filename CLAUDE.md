@@ -76,6 +76,16 @@
 4. **划掉独立分支要连带核对属性集**：判定某扩展组件（GButton/GLabel 等）"已展开不需要独立分支"时，必须逐属性 grep 真实样本词表，确认每个属性（title/icon/selected...）都有注入链路；机制复用不等于属性全覆盖。
 5. **多渲染分支对称核对**：同一节点类型的多个渲染分支（img 路径 vs div+border-image 路径）新增分支时，对照旧分支核对公共兑底逻辑（尺寸兑底/对齐/染色）是否要复制。
 6. **改代码不生效先查进程**：排查"改了代码页面没变化"，第一步确认 server 进程启动时间是否早于代码提交（netstat 查端口 PID）。区分"数据不生效"（XML 层 fresh 重解析覆盖）与"代码不生效"（必须重启进程）；长驻服务一律 tsx watch。
+7. **九宫格 border-image 必须加 fill 关键字**：CSS `border-image-slice` 默认不画中心（四边四角之外的中间镂空），FairyGUI scale9grid 是画中心的（中心拉伸）。漏 `fill` 会镂空露出 stage 底色，看起来像"文本有灰背景"。（坑见 experience/2026-11-04-九宫格border-image漏fill中心镂空.md）
+
+## 看图与视觉验证（MCP 工具链）
+
+**模型不能直接看截图/图片**（browser_take_screenshot 返回的图像会被模型忽略）。需要看图验证渲染效果时，用 zai MCP 图像分析工具链：
+
+1. **看渲染效果**：`browser_save_artifact`（或 `browser_take_screenshot`）截图存文件 -> `zai_mcp_server_analyze_image` 传入截图路径 + 具体提问（如"按钮中心是否有贴图填充，还是镂空露出灰底"）。提问要具体到要验证的视觉断言，不要问泛泛的"图里有什么"。
+2. **两图对比**（修复前后/预期 vs 实际）：`zai_mcp_server_ui_diff_check` 传两张截图。
+3. **截图前先刷新**：tsx watch 重启 server 后，浏览器页面还持有旧 HTML，必须先 reload 再截图，否则分析的是旧页面（踩过：fill 修复后首张截图仍显示镂空）。
+4. 截图默认存 `C:\Users\<user>\.pi\browser-artifacts\`，browser_take_screenshot 的 filePath 只能写 workspace roots 内的路径。
 
 ## 示例目录：`dev-examples/` —— 开发期沙盒
 
