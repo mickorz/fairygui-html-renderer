@@ -14,10 +14,22 @@ export function renderListNode(input: NodeRenderInput): string {
   const layout = node.attrs.layout ?? "";
   const colGap = node.attrs.colGap ? `${node.attrs.colGap}px` : "0";
   const lineGap = node.attrs.lineGap ? `${node.attrs.lineGap}px` : "0";
-  // SDK 词表：column/row/flow_hz/flow_vt/pagination；flow_hz 用 grid 按 lineItemCount 换列
+  // SDK 词表：column/row/flow_hz/flow_vt/pagination；flow_hz/pagination 用 grid 按列数换行，flow_vt 按行数换列
   const lineItems = node.attrs.lineItemCount ? Number(node.attrs.lineItemCount) : 0;
   const isGrid = layout === "flow_hz" || layout === "pagination";
   const itemSize = node.defaultItemSize;
+  // R24：flow_hz/pagination 无 lineItemCount 时按视口宽与 item 尺寸推算每行列数
+  let gridCols = lineItems;
+  if (isGrid && !gridCols && geo.size && itemSize) {
+    const cg = Number(node.attrs.colGap ?? 0) || 0;
+    gridCols = Math.max(1, Math.floor((geo.size[0] + cg) / (itemSize.w + cg)));
+  }
+  // R24：flow_vt 无 lineItemCount 时按视口高推算每列行数
+  let gridRows = lineItems;
+  if (layout === "flow_vt" && !gridRows && geo.size && itemSize) {
+    const lg = Number(node.attrs.lineGap ?? 0) || 0;
+    gridRows = Math.max(1, Math.floor((geo.size[1] + lg) / (itemSize.h + lg)));
+  }
   const items = node.listItems
     .map((item) => {
       const inner = renderChildren(item.scene, { pkg: item.pkg, toAssetUrl: ctx.toAssetUrl }, [...stack, `${node.stableKey}#${item.index}`]);
@@ -27,8 +39,10 @@ export function renderListNode(input: NodeRenderInput): string {
     })
     .join("");
   let layoutStyle: string;
-  if (isGrid && lineItems > 0) {
-    layoutStyle = `display:grid;grid-template-columns:repeat(${lineItems},max-content);gap:${lineGap} ${colGap};`;
+  if (isGrid && gridCols > 0) {
+    layoutStyle = `display:grid;grid-template-columns:repeat(${gridCols},max-content);gap:${lineGap} ${colGap};`;
+  } else if (layout === "flow_vt" && gridRows > 0) {
+    layoutStyle = `display:grid;grid-auto-flow:column;grid-template-rows:repeat(${gridRows},max-content);gap:${lineGap} ${colGap};`;
   } else if (layout === "row") {
     layoutStyle = `display:flex;flex-direction:row;gap:0 ${colGap};`;
   } else {

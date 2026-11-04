@@ -24,10 +24,15 @@ export function toCssColor(s: string | undefined, fallback: string): string {
   return fallback;
 }
 
-/** 通用几何/视觉样式：位置尺寸 + 旋转/翻转 + 透明度 */
+/** 通用几何/视觉样式：位置尺寸 + 旋转/翻转 + 透明度 + 旋转基点（R25） */
 export function baseStyle(geo: Geo, node: ParsedNode): string {
   const parts = [`left:${geo.xy[0]}px`, `top:${geo.xy[1]}px`];
   if (geo.size) parts.push(`width:${geo.size[0]}px`, `height:${geo.size[1]}px`);
+  // R25：pivot 旋转基点（0-1 归一化）-> transform-origin 百分比
+  if (node.attrs.pivot) {
+    const [px, py] = node.attrs.pivot.split(",").map(Number);
+    if (Number.isFinite(px) && Number.isFinite(py)) parts.push(`transform-origin:${px * 100}% ${py * 100}%`);
+  }
   const t: string[] = [];
   if (node.attrs.rotation) t.push(`rotate(${node.attrs.rotation}deg)`);
   const flip = node.attrs.flip;
@@ -45,12 +50,21 @@ export function dataAttrs(node: ParsedNode, file: string): string {
   return `data-fgui-id="${esc(node.id)}" data-fgui-name="${esc(node.name)}" data-fgui-src="${esc(src)}" data-fgui-type="${esc(node.type)}" data-fgui-path="${esc(node.instancePath ?? "")}" data-fgui-key="${esc(node.stableKey ?? "")}"`;
 }
 
-/** image 染色 filter 片段（登记到 tints 集合，renderHtml 末尾生成 SVG defs） */
+/** image 染色 filter 片段（登记到 tints 集合，renderHtml 末尾生成 SVG defs）；返回裸 url 引用，由调用方拼 filter 属性 */
 export function tintStyle(color: string | undefined, tints: Set<string>): string {
   if (!color || !color.startsWith("#")) return "";
   const hex = color.slice(1).padStart(6, "0").slice(-6);
   tints.add(hex);
-  return `filter:url(#tint-${hex});`;
+  return `url(#tint-${hex})`;
+}
+
+/** 染色色的 alpha 分量（#AARRGGBB），无 alpha 返回 null（R22） */
+export function tintAlpha(color: string | undefined): number | null {
+  if (!color || !color.startsWith("#")) return null;
+  const hex = color.slice(1);
+  if (hex.length !== 8) return null;
+  const a = parseInt(hex.slice(0, 2), 16) / 255;
+  return Number.isFinite(a) ? a : null;
 }
 
 /** 染色 SVG filter 定义（feColorMatrix 对角矩阵 = 乘法染色） */
@@ -62,9 +76,10 @@ export function tintFilterDef(color: string): string {
   return `<filter id="tint-${hex}"><feColorMatrix type="matrix" values="${r} 0 0 0 0 0 ${g} 0 0 0 0 0 ${b} 0 0 0 0 0 1 0"/></filter>`;
 }
 
-/** 九宫格样式：scale9grid "x,y,w,h" -> border-image（slice 四边换算） */
+/** 九宫格样式：仅 scale=9grid/tile 启用（对齐 FairyGUI 语义：保留 scale9grid 但未启用按整图）；scale9grid "x,y,w,h" -> border-image */
 export function nineSliceStyle(res: ImageResource, ctx: RenderContext): string | null {
   if (!res.scale9grid || !res.width || !res.height) return null;
+  if (res.scale !== "9grid" && res.scale !== "tile") return null;
   const [x, y, w, h] = res.scale9grid.split(",").map(Number);
   // 9grid 区域可能超出小图边界（如 2px 分隔线），clamp 到 0 避免 CSS slice 无效
   const right = Math.max(0, res.width - x - w);

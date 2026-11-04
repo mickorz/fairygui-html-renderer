@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="400,300">
+  <displayList>
+    <component id="n1" name="ovInst" src="c_ov" xy="0,0" controller="c_ov,1"/>
+    <graph id="n3" name="groupMember" xy="0,50" size="20,20" type="rect" fillColor="#ffff0000" group="n2"/>
+    <group id="n2" name="g" xy="0,50" size="40,20"/>
+    <inputtext id="n4" name="nameInput" xy="0,80" size="120,24" fontSize="12" singleLine="true" prompt="[i][color=#999999]Your Name Here[/color][/i]"/>
+    <inputtext id="n5" name="pwdInput" xy="0,110" size="120,24" fontSize="12" text="secret" password="true" maxLength="6"/>
+    <text id="n6" name="styledText" xy="0,140" size="200,30" fontSize="14" text="样式" bold="true" italic="true" underline="true" shadowColor="#000000" shadowOffset="2,3"/>
+    <image id="n7" name="aspectImg" src="i_a" xy="220,0" size="80,40" aspect="true"/>
+    <image id="n8" name="tintAlphaImg" src="i_a" xy="220,50" size="61,53" color="#80ff0000"/>
+    <image id="n9" name="gridImg" src="i_c" xy="220,110" size="61,53"/>
+    <image id="n10" name="noGridImg" src="i_b" xy="220,170" size="61,53"/>
+    <graph id="n11" name="pivoted" xy="300,220" size="40,20" type="rect" fillColor="#ff006600" pivot="0.5,0.5" rotation="30"/>
+    <list id="n12" name="vtList" xy="0,180" size="70,70" layout="flow_vt" lineItemCount="2" defaultItem="ui://test01c_si">
+      <item/><item/><item/><item/>
+    </list>
+    <list id="n13" name="wrapList" xy="80,180" size="70,70" layout="flow_hz" defaultItem="ui://test01c_si">
+      <item/><item/><item/><item/>
+    </list>
+    <list id="n14" name="winList" xy="160,180" size="50,50" overflow="scroll" defaultItem="ui://test01c_si">
+      <item/><item/><item/><item/><item/><item/>
+    </list>
+  </displayList>
+</component>

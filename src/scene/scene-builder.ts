@@ -48,6 +48,8 @@ export interface SceneOptions {
   pkg: FairyPackage;
   /** 工程根目录：list 节点解析 ui:// defaultItem 需要；未传时 list 保持未支持 */
   root?: string;
+  /** list 展开数量安全上限（overflow 非 scroll 时的全量上限，缺省 200） */
+  listItemCap?: number;
   /** 循环引用上报回调（可选） */
   onCycle?: (file: string, stack: string[]) => void;
 }
@@ -122,9 +124,22 @@ export function buildScene(comp: ParsedComponent, opts: SceneOptions, ctx?: Buil
       }),
     };
     injectExtensionProps(copy);
+    // R20：实例级页覆盖：controller 属性为 name,pageId 逗号对，覆写子场景控制器初始页（gear 求值链自动生效）
+    applyInstanceControllers(copy.childComp.comp, copy.attrs.controller);
     return copy;
   });
-  return { ...comp, nodes };
+  // controllers 逐项副本：实例页覆盖（R20）可安全写入而不污染解析缓存
+  return { ...comp, controllers: comp.controllers.map((c) => ({ ...c })), nodes };
+}
+
+/** 实例级页覆盖（R20）：对齐 OpenFairy ConfigureInstanceControllers 语义（name,pageId 逗号对） */
+function applyInstanceControllers(scene: ParsedComponent, spec: string | undefined): void {
+  if (!spec) return;
+  const pairs = spec.split(",");
+  for (let i = 0; i + 1 < pairs.length; i += 2) {
+    const c = scene.controllers.find((x) => x.name === pairs[i]);
+    if (c && c.pageIds.includes(pairs[i + 1])) c.selected = pairs[i + 1];
+  }
 }
 
 /** loader url 指向包内 component 的展开（R12）：复用 component 节点展开范式（循环防护 + 稳定键续接） */
@@ -150,6 +165,7 @@ function expandLoaderComponent(
       keyPrefix: `${copy.stableKey}~${childPkg.id}.${childResId}`,
     }),
   };
+  applyInstanceControllers(copy.childComp.comp, copy.attrs.controller);
 }
 
 /**
@@ -189,10 +205,20 @@ function expandList(copy: ParsedNode, opts: SceneOptions, ctx: BuildContext): vo
     return;
   }
   const itemPkg = loadPackage(hit.pkgDir);
-  const itemCount = Math.min(copy.itemCount ?? 0, 200);
   // GList item 尺寸 = defaultItem 组件的设计尺寸（FairyGUI 语义）
   const itemComp = getComponent(hit.resource.file, { fresh: true });
   copy.defaultItemSize = { w: itemComp.size[0], h: itemComp.size[1] };
+  // R24：展开数量上限：overflow=scroll 时按视口推算展开窗口（可视容量外多留一屏，对齐 overscan 思路），
+  // 其余全量展开（安全上限可配 listItemCap，缺省 200）
+  let cap = opts.listItemCap ?? 200;
+  if (copy.attrs.overflow === "scroll" && copy.size && itemComp.size[0] > 0 && itemComp.size[1] > 0) {
+    const cg = Number(copy.attrs.colGap ?? 0) || 0;
+    const lg = Number(copy.attrs.lineGap ?? 0) || 0;
+    const cols = Math.max(1, Math.floor((copy.size[0] + cg) / (itemComp.size[0] + cg)));
+    const rows = Math.max(1, Math.floor((copy.size[1] + lg) / (itemComp.size[1] + lg)));
+    cap = Math.max(1, cols * rows * 2);
+  }
+  const itemCount = Math.min(copy.itemCount ?? 0, cap);
   const index = globalIndexOf(opts.root);
   copy.listItems = [];
   for (let i = 0; i < itemCount; i++) {

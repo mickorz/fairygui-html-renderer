@@ -115,7 +115,7 @@ function parsePair(s: string | undefined): [number, number] | undefined {
   return [parts[0] ?? 0, parts[1] ?? 0];
 }
 
-const KNOWN_TYPES = new Set(["image", "text", "richtext", "graph", "component", "list", "loader"]);
+const KNOWN_TYPES = new Set(["image", "text", "richtext", "inputtext", "graph", "group", "component", "list", "loader"]);
 const GEAR_KINDS: { tag: string; kind: Gear["kind"] }[] = [
   { tag: "gearDisplay", kind: "display" },
   { tag: "gearXY", kind: "xy" },

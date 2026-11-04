@@ -153,6 +153,33 @@ check("R12：loader 组件分支展开子场景（overflowChild）", p1Html.incl
 check("R15：homePage=specific 取指定页（page2 可见 / page0 隐藏）", !/data-fgui-name="page2Visible"[^>]*visibility:hidden/.test(flat(p1Html)) && /data-fgui-name="page0Hidden"[^>]*visibility:hidden/.test(flat(p1Html)));
 check("R15：gearColor 首页覆盖（homePage 驱动）", gcHtml.includes("color:#000000") && !gcHtml.includes("color:#ffffff"));
 
+// ===== 阶段 J（P2 批次）：R20-R25 =====
+const p2Scene = buildScene(getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/P2Fix.xml")), { pkg: fxPkg(), root: path.resolve("tests/fixtures/workspace") });
+const p2Html = renderHtml(p2Scene, { pkg: fxPkg(), toAssetUrl: (f) => f });
+
+// R20：实例级页覆盖 c_ov,1 -> page1Dot 可见 / page0Dot 隐藏
+check("R20：实例级 controller 页覆盖", !/data-fgui-name="page1Dot"[^>]*visibility:hidden/.test(flat(p2Html)) && /data-fgui-name="page0Dot"[^>]*visibility:hidden/.test(flat(p2Html)));
+// R21：group 无视觉且成员正常渲染、不上报
+check("R21：group 透明容器（成员渲染、无占位无上报）", p2Html.includes('data-fgui-name="groupMember"') && !p2Html.includes('data-fgui-name="g"') && !p2Html.includes("未支持"));
+// R23：输入框 prompt UBB / password 圆点 / 样式布尔 / 阴影
+check("R23：输入框 prompt UBB 占位渲染", /data-fgui-name="nameInput"[^>]*><i/.test(flat(p2Html)) && p2Html.includes("color:#999999"));
+check("R23：password 渲染圆点与 data 属性", p2Html.includes("\u2022\u2022\u2022\u2022\u2022\u2022") && p2Html.includes('data-fgui-password="true"') && p2Html.includes('data-fgui-maxlength="6"'));
+check("R23：bold/italic/underline/阴影", /data-fgui-name="styledText"[^>]*font-weight:bold/.test(flat(p2Html)) && /data-fgui-name="styledText"[^>]*text-shadow:2px 3px 0 #000000/.test(flat(p2Html)) && p2Html.includes("text-decoration:underline"));
+// R22：aspect/染色 alpha/九宫格启用判定
+check("R22：aspect 等比装入", /data-fgui-name="aspectImg"[^>]*object-fit:contain/.test(flat(p2Html)));
+check("R22：染色 8 位色 alpha 复合", /data-fgui-name="tintAlphaImg"[^>]*opacity:0\.502/.test(flat(p2Html)));
+check("R22：九宫格仅 scale=9grid 启用", /data-fgui-name="gridImg"[^>]*border-image-slice/.test(flat(p2Html)) && !/data-fgui-name="noGridImg"[^>]*border-image/.test(flat(p2Html)));
+// R25：pivot 旋转基点
+check("R25：pivot transform-origin", /data-fgui-name="pivoted"[^>]*transform-origin:50% 50%/.test(flat(p2Html)));
+// R24：flow_vt / flow_hz 自动折行 / 视口展开窗口
+check("R24：flow_vt 按行数换列", /data-fgui-name="vtList"[^>]*grid-auto-flow:column/.test(flat(p2Html)) && /data-fgui-name="vtList"[^>]*grid-template-rows:repeat\(2,max-content\)/.test(flat(p2Html)));
+check("R24：flow_hz 无 lineItemCount 按视口推算列数", /data-fgui-name="wrapList"[^>]*grid-template-columns:repeat\(2,max-content\)/.test(flat(p2Html)));
+check("R24：overflow=scroll 视口展开窗口（50x50 视口 30x30 项 -> 2 项）", p2Html.includes("n14#1~") && !p2Html.includes("n14#2~"));
+// R24：listItemCap 可配置
+const p2CapScene = buildScene(getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/P2Fix.xml")), { pkg: fxPkg(), root: path.resolve("tests/fixtures/workspace"), listItemCap: 3 });
+const p2CapHtml = renderHtml(p2CapScene, { pkg: fxPkg(), toAssetUrl: (f) => f });
+check("R24：listItemCap 可配置（3 -> vtList 3 项）", p2CapHtml.includes("n12#2~") && !p2CapHtml.includes("n12#3~"));
+
 if (failed > 0) {
   console.error(`检查失败 ${failed} 项`);
   process.exit(1);

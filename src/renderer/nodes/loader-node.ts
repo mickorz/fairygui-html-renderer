@@ -42,10 +42,10 @@ export function renderLoaderNode(input: NodeRenderInput): string {
   const align = { left: "flex-start", center: "center", right: "flex-end" }[node.attrs.align ?? "left"] ?? "flex-start";
   const vAlign = { top: "flex-start", middle: "center", bottom: "flex-end" }[node.attrs.vAlign ?? "top"] ?? "flex-start";
   const wrap = [`${gearStyle}${baseStyle(geo, node)}`, `display:flex;justify-content:${align};align-items:${vAlign};overflow:hidden`];
-  // 染色与灰化（复用 image 的 feColorMatrix 染色链路）
+  // 染色与灰化（复用 image 的 feColorMatrix 染色链路；tintStyle 返回裸 url，由 filter 属性拼接）
   const tintSrc = colorOverride ?? node.attrs.color;
   const tint = tintStyle(tintSrc, tints);
-  const filter = [tint.replace(/;$/, ""), node.attrs.grayed === "true" ? "grayscale(1)" : ""].filter(Boolean).join(" ");
+  const filter = [tint, node.attrs.grayed === "true" ? "grayscale(1)" : ""].filter(Boolean).join(" ");
   const imgStyle = [fillStyle(node.attrs.fill ?? "none"), filter ? `filter:${filter}` : ""].filter(Boolean).join(";");
   return `<div ${attrs} class="fgui-node" style="${wrap.join(";")}"><img src="${esc(ctx.toAssetUrl(res.file))}" style="${imgStyle}" alt=""></div>`;
 }

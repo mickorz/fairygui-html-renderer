@@ -1,6 +1,6 @@
 import type { NodeRenderInput } from "../types.js";
 import type { ParsedNode } from "../../parser/component-parser.js";
-import { baseStyle, dataAttrs, esc, nineSliceStyle, tintStyle } from "../utils.js";
+import { baseStyle, dataAttrs, esc, nineSliceStyle, tintAlpha, tintStyle } from "../utils.js";
 
 // image 节点渲染：普通图 <img>；九宫格 -> div + border-image（拉伸不变形）；染色 -> feColorMatrix filter
 // R14：fillMethod 填充（进度/冷却类）：hz/vt 用 clip-path，radial360 用 conic mask（对齐 uGUI FillMethod 语义）
@@ -52,13 +52,22 @@ export function renderImageNode(input: NodeRenderInput): string {
   const tintSrc = colorOverride ?? node.attrs.color;
   const tint = tintStyle(tintSrc, tints);
   if (tintSrc && !tint) unsupported.push({ nodeId: node.id, reason: `image 染色 color=${tintSrc} 无法解析` });
+  // R22：染色 8 位色的 alpha 分量与节点 alpha 复合（后置 opacity 覆盖 baseStyle 的同名项）
+  const tintA = tintAlpha(tintSrc);
+  const nodeA = node.attrs.alpha !== undefined ? Number(node.attrs.alpha) : 1;
+  const alphaStyle = tintA !== null && tintA < 1
+    ? `opacity:${(tintA * (Number.isFinite(nodeA) ? nodeA : 1)).toFixed(3)}`
+    : "";
   const filter = [tint, node.attrs.grayed === "true" ? "grayscale(1)" : ""].filter(Boolean).join(" ");
   if (nine) {
     // 九宫格：div + border-image（拉伸不变形）
-    return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};${nine};${fillClip ?? ""}${fillClip ? ";" : ""}${filter ? `filter:${filter};` : ""}"></div>`;
+    return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)}${alphaStyle ? ";" + alphaStyle : ""};${nine};${fillClip ?? ""}${fillClip ? ";" : ""}${filter ? `filter:${filter};` : ""}"></div>`;
   }
   const style = [`${gearStyle}${baseStyle(geo, node)}`];
   if (!geo.size && res.width) style.push(`width:${res.width}px`, `height:${res.height}px`);
+  // R22：aspect 保持纵横比（尺寸已指定时等比装入，对齐 FairyGUI aspect 语义）
+  if (node.attrs.aspect === "true" && geo.size) style.push("object-fit:contain");
+  if (alphaStyle) style.push(alphaStyle);
   if (fillClip) style.push(fillClip);
   if (filter) style.push(`filter:${filter}`);
   return `<img ${attrs} src="${esc(ctx.toAssetUrl(res.file))}" class="fgui-node" style="${style.join(";")}" alt="">`;

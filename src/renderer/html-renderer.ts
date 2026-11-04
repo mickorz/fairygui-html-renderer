@@ -27,7 +27,9 @@ const RENDERERS: Record<string, NodeRenderer> = {
   image: renderImageNode,
   text: renderTextNode,
   richtext: renderTextNode, // R13：richtext 复用 text 渲染（ubb 属性驱动富文本映射）
+  inputtext: renderTextNode, // R23：输入框静态呈现（text/prompt/password）
   graph: renderGraphNode,
+  group: () => "", // R21：group 无视觉（成员靠 group 属性引用，已各自渲染）
   component: renderComponentNode,
   list: renderListNode,
   loader: renderLoaderNode,

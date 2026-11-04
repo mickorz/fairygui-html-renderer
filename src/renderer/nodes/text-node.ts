@@ -55,10 +55,19 @@ function renderUbb(s: string, ctx: RenderContext): string {
 
 export function renderTextNode(input: NodeRenderInput): string {
   const { node, comp, ctx, geo, gearStyle, colorOverride, unsupported } = input;
-  const attrs = dataAttrs(node, comp.file);
+  // R23：输入框静态呈现：无 text 渲染 prompt（作者自带 UBB 占位样式），password 渲染圆点
+  const isInput = node.type === "inputtext";
+  const usingPrompt = isInput && !node.attrs.text;
+  let attrs = dataAttrs(node, comp.file);
+  if (isInput) {
+    attrs += ` data-fgui-input="true"`;
+    if (node.attrs.password === "true") attrs += ` data-fgui-password="true"`;
+    if (node.attrs.maxLength !== undefined) attrs += ` data-fgui-maxlength="${esc(node.attrs.maxLength)}"`;
+  }
   const style = [`${gearStyle}${baseStyle(geo, node)}`];
   const autoSize = node.attrs.autoSize ?? "none";
   if (autoSize === "height" && geo.size) style.push("height:auto"); // 高度随内容自适应
+  if (autoSize === "both") style.push("width:auto", "height:auto"); // R23：Both 不换行随内容（见 white-space）
   const fontSize = Number(node.attrs.fontSize ?? 12);
   style.push(`font-size:${fontSize}px`);
   // 行高：对齐 FairyGUI 排版公式（缺省 leading=3）
@@ -67,12 +76,23 @@ export function renderTextNode(input: NodeRenderInput): string {
   if (node.attrs.letterSpacing !== undefined) style.push(`letter-spacing:${node.attrs.letterSpacing}px`);
   // gearColor 默认页覆盖 > 属性色
   style.push(`color:${colorOverride ?? toCssColor(node.attrs.color, "#000000")}`);
-  // 描边（近似：FairyGUI 描边向外，CSS text-stroke 居中，视觉略细）
-  if (node.attrs.strokeColor) {
-    const size = node.attrs.strokeSize ? Number(node.attrs.strokeSize) : 2;
-    style.push(`-webkit-text-stroke:${size}px ${toCssColor(node.attrs.strokeColor, "#000000")}`);
+  // R23：样式布尔
+  if (node.attrs.bold === "true") style.push("font-weight:bold");
+  if (node.attrs.italic === "true") style.push("font-style:italic");
+  if (node.attrs.underline === "true") style.push("text-decoration:underline");
+  // R23：阴影（shadowOffset 缺省 1,1；y 向下为正与 CSS 同向）
+  if (node.attrs.shadowColor) {
+    const [sx, sy] = (node.attrs.shadowOffset ?? "1,1").split(",").map(Number);
+    style.push(`text-shadow:${sx || 0}px ${sy || 0}px 0 ${toCssColor(node.attrs.shadowColor, "#000000")}`);
   }
-  style.push("white-space:pre-wrap;overflow:hidden");
+  // 描边（缺省 strokeSize=1 对齐 FairyGUI；CSS 居中口径补僵 2 倍近似向外描边）
+  if (node.attrs.strokeColor) {
+    const size = node.attrs.strokeSize !== undefined ? Number(node.attrs.strokeSize) : 1;
+    style.push(`-webkit-text-stroke:${size * 2}px ${toCssColor(node.attrs.strokeColor, "#000000")}`);
+  }
+  // R23：singleLine / autoSize=both 不换行，其余保留换行
+  const nowrap = node.attrs.singleLine === "true" || autoSize === "both";
+  style.push(`white-space:${nowrap ? "nowrap" : "pre-wrap"};overflow:hidden`);
   if (node.attrs.align) style.push(`text-align:${node.attrs.align}`);
   // 垂直对齐：flex 列容器实现 top/middle/bottom
   if (node.attrs.vAlign) {
@@ -83,10 +103,13 @@ export function renderTextNode(input: NodeRenderInput): string {
       unsupported.push({ nodeId: node.id, reason: `text vAlign=${node.attrs.vAlign} 无法识别` });
     }
   }
-  // 文本内容：模板替换 -> 转义 -> UBB 白名单映射
-  let text = node.attrs.text ?? "";
+  // 文本内容：模板替换 -> 转义 -> UBB 白名单映射（输入框空文本时用 prompt，prompt 自带 UBB 样式）
+  let text = isInput && !node.attrs.text ? node.attrs.prompt ?? "" : node.attrs.text ?? "";
   if (node.attrs.vars === "true") text = applyTemplate(text);
+  if (isInput && node.attrs.password === "true" && node.attrs.text) {
+    text = "\u2022".repeat(node.attrs.text.length);
+  }
   text = esc(text);
-  if (node.attrs.ubb === "true") text = renderUbb(text, ctx);
+  if (node.attrs.ubb === "true" || usingPrompt) text = renderUbb(text, ctx);
   return `<div ${attrs} class="fgui-node" style="${style.join(";")}">${text}</div>`;
 }
