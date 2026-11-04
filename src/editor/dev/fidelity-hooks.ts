@@ -1,6 +1,7 @@
 import { createEditorInstance, getEditor } from "../grapes/editor-instance";
 import { loadHtml } from "../grapes/load-html";
 import { installAdapterHooks } from "./adapter-hooks";
+import { setupDragEnhancements } from "../grapes/drag-enhance";
 
 // 保真度验证钩子（check:grapes 用；常驻无副作用）
 // 设计要点：几何/样式对比全部在"浏览器渲染后 computed style"层面取值，
@@ -323,7 +324,8 @@ export function installFidelityHooks(): void {
     const host = document.getElementById("gjs-canvas-host");
     if (host) {
       clearInterval(timer);
-      createEditorInstance(host);
+      const ed = createEditorInstance(host);
+      setupDragEnhancements(ed);
       w.__editorReady = true;
     } else if (Date.now() - start > 15000) {
       clearInterval(timer);

@@ -28,7 +28,19 @@
 
 ### 问题 3：拖动和缩放能否只修改目标节点？
 
-**待 Task 3 验证**（按需提升策略落地后回填本节）。
+**结论：能（Task 3 验证，断言 16/16，2026-11-04）**。前提是补齐三个配置/类型修复（均不改 thirdparties 源码）：
+
+| 修复 | 源码极源 | 说明 |
+|---|---|---|
+| `dragMode: "absolute"` | - | 拖动启绝对定位模式，static 元素拖动时按需提升 absolute（只改目标节点，父容器与兄弟零变动，断言验证） |
+| `DomComponents.addType("image")` 补八方向 resizable | ComponentImage.ts:21 默认 `{ratioDefault:1}` 无方向键，Resizer.ts:376 不创建交互 handle | 图片默认拖不动缩放控制点，补全后八控制点可拖 |
+| `selectorManager.componentFirst: true` | style_manager/index.ts:488 getModelToStyle | 默认 false 时缩放样式写入类规则，被原始内联 style 覆盖静默失效；改 true 后直接写组件内联 style（与 avoidInlineStyle=false 内联保真一致） |
+
+- 拖动按需提升：drag:start 快照原始布局存组件属性 `fgui-origin-layout`（不覆盖最早快照），drag:end 若 position 由非 absolute 变 absolute 标记 `fgui-layout-changed=true`；Undo 可完整还原（断言验证）；
+- 嵌套坐标：拖子节点只改子相对父容器的 left/top，父容器与兄弟不动（断言验证）；
+- 缩放写内联 style，增量与拖动位移一致，不产生额外类规则；
+- 已知合成事件特性（非产品缺陷）：dragMode absolute 每次拖动结束设 `_cmpDrag` 标志，真实浏览器靠紧随 mouseup 的 trailing click 清除；Playwright 合成拖动 mouseup 被 preventDefault 后 trailing click 不触发，标志残留会吞掉下一次 click——e2e 每次拖动后显式清除（详见 experience/grapesjs-cmpdrag-synthetic-event-residue.md）；
+- 待 Task 7 e2e 补齐：滚动容器内拖动、节点 transform: scale 下拖动两场景的坐标换算断言。
 
 ### 问题 4：导出的 HTML 能否被现有 Converter 正确处理？
 

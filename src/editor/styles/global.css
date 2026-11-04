@@ -40,6 +40,20 @@ body,
   background: #2b2b2b;
 }
 
+/* 设计画布 frame 实际尺寸（Task 2）：GrapesJS device 的 height 未落到 iframe（默认 300x150），
+   在外壳层直接固定，使画布完整可视且点击命中有效 */
+#gjs-canvas-host .gjs-frame-wrapper,
+#gjs-canvas-host .cv-canvas__frame-wrapper {
+  width: 750px;
+  height: 1334px;
+}
+
+#gjs-canvas-host iframe.gjs-frame,
+#gjs-canvas-host iframe.cv-canvas__frame {
+  width: 750px !important;
+  height: 1334px !important;
+}
+
 .region-props {
   grid-area: props;
 }
