@@ -78,9 +78,9 @@ export function createApp(opts: AppOptions): http.Server {
 async function route(req: http.IncomingMessage, res: http.ServerResponse, root: string, assetsRoot: string): Promise<void> {
   const u = new URL(req.url ?? "/", "http://localhost");
   const p = u.pathname;
-  // 编辑器会话 API（Task 5）：POST/PUT 可写，先于只读限制分发
+  // 编辑器会话 API（Task 5/6）：POST/PUT 可写，先于只读限制分发
   if (isEditorApi(p)) {
-    return handleEditorApi(req, res, p);
+    return handleEditorApi(req, res, p, { assetsRoot });
   }
   // 场景 B 安全前提：默认只读
   if (req.method !== "GET" && req.method !== "HEAD") {

@@ -1,0 +1,21 @@
+/* 模拟会话编辑态导出 CSS（独立文件）：定位与样式走类规则，验证 <link> 注入组装后 Converter 相对解析与提取 */
+#canvas {
+  position: relative;
+  width: 400px;
+  height: 300px;
+  background: #6a6a6a;
+}
+.hero {
+  position: absolute;
+  left: 24px;
+  top: 20px;
+  width: 61px;
+  height: 53px;
+}
+.title {
+  position: absolute;
+  left: 100px;
+  top: 32px;
+  font-size: 18px;
+  color: #ffd666;
+}

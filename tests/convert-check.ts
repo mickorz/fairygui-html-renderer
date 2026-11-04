@@ -71,6 +71,22 @@ check("nested：Root 引用子组件文件", nestedRoot.includes('src="') && fs.
 check("nested：透明度与旋转透传到 avatar", fs.readFileSync(path.join(root, "assets", "Nested", "panel.xml"), "utf8").includes('alpha="0.6"') && fs.readFileSync(path.join(root, "assets", "Nested", "panel.xml"), "utf8").includes('rotation="-12"'));
 check("nested：容器背景 graph 落在子组件内", fs.readFileSync(path.join(root, "assets", "Nested", "panel.xml"), "utf8").includes("#ff223344"));
 
+// ===== 样本 4：sessionlike（会话形态输入：body 片段 + <link> 独立 styles.css + assets/ 子目录） =====
+// 验证 convert 路由组装的输入形态（编辑器 editor/index.html + editor/styles.css + editor/assets/）
+// 能零改动走 runPipeline：类规则定位/样式经渲染后提取，资源按 htmlDir 相对解析复制
+const sessionlike = runPipeline({
+  htmlFile: "tests/fixtures/convert/sessionlike/index.html",
+  outPkgDir: path.join(root, "assets", "SessionLike"),
+  pkgName: "SessionLike",
+  force: true,
+});
+check("sessionlike：2 节点（图片+文本）", sessionlike.report.total === 2 && sessionlike.report.skipped.length === 0);
+check("sessionlike：回读坐标 ±1px", sessionlike.validation.ok && sessionlike.validation.matched === 2, `dx=${sessionlike.validation.maxDx} dy=${sessionlike.validation.maxDy}`);
+const slRoot = fs.readFileSync(path.join(root, "assets", "SessionLike", "Root.xml"), "utf-8");
+check("sessionlike：图片进包（images/pic.png 复制）", slRoot.includes('fileName="images/pic.png"') && fs.existsSync(path.join(root, "assets", "SessionLike", "images", "pic.png")));
+check("sessionlike：类规则定位被提取（title 文本节点）", slRoot.includes("SessionLike Title"));
+check("sessionlike：类规则颜色被提取（#ffd666）", slRoot.toLowerCase().includes("#ffd666"));
+
 // ===== 确定性：重复导出产物一致 =====
 const helloAgain = runPipeline({
   htmlFile: "tests/fixtures/convert/hello.html",

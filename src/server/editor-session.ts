@@ -5,6 +5,7 @@ import http from "node:http";
 import path from "node:path";
 import fs from "node:fs";
 import { safeResolve } from "./server.js";
+import { runPipeline } from "../convert/transform.js";
 import type { GameCanvasConfig } from "../editor/adapter/types.js";
 
 // 会话目录布局（editor-workspaces/<id>/）：
@@ -14,12 +15,15 @@ import type { GameCanvasConfig } from "../editor/adapter/types.js";
 //   editor/index.html    当前编辑态导出（初始 = 原稿副本）
 //   editor/styles.css    当前编辑态导出
 //   editor/project.json  { sourceRevision, updatedAt, projectData, assets, diagnostics }
-//   assets/**            会话资源（外部放置，P0 无上传路由）
-//   output/**            转换产物（Task 6）
+//   editor/assets/**     会话资源（与 Converter 相对解析规则一致：editor/ 目录下 assets/...，
+//                        见执行计划资源路径约定 1；P0 无上传路由，外部放置）
+//   output/**            转换产物（validation-report.json 等）
 
 export interface EditorApiOptions {
   /** 会话根目录（默认仓库根 editor-workspaces/，FGUI_EDITOR_WORKSPACE 可覆盖） */
   workspaceDir?: string;
+  /** 目标工程 assets 根目录（convert 输出 <assetsRoot>/<outPkgName>） */
+  assetsRoot: string;
 }
 
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -103,9 +107,9 @@ function sessionDir(workspace: string, id: string): string | null {
   return dir;
 }
 
-/** 会话 assets 目录下的相对资源清单（排除目录） */
+/** 会话资源清单（editor/assets/ 下，路径形如 assets/...，与画布/Converter 相对路径一致） */
 function listAssets(dir: string): string[] {
-  const assetsRoot = path.join(dir, "assets");
+  const assetsRoot = path.join(dir, "editor", "assets");
   if (!fs.existsSync(assetsRoot)) return [];
   const out: string[] = [];
   const walk = (rel: string) => {
@@ -131,8 +135,9 @@ interface PutBody {
 }
 
 /** 处理 /api/editor/* 请求；非本前缀由调用方继续处理 */
-export async function handleEditorApi(req: http.IncomingMessage, res: http.ServerResponse, pathname: string, opts: EditorApiOptions = {}): Promise<void> {
+export async function handleEditorApi(req: http.IncomingMessage, res: http.ServerResponse, pathname: string, opts: EditorApiOptions): Promise<void> {
   const workspace = path.resolve(opts.workspaceDir ?? process.env.FGUI_EDITOR_WORKSPACE ?? "editor-workspaces");
+  const assetsRoot = path.resolve(opts.assetsRoot);
 
   try {
     // POST /api/editor/session —— 创建会话
@@ -252,12 +257,12 @@ export async function handleEditorApi(req: http.IncomingMessage, res: http.Serve
       });
     }
 
-    // GET /api/editor/session/:id/asset/* —— 会话资源文件流
-    // 安全：拒绝 ../ 跨目录、/ 绝对路径、协议前缀，并经 safeResolve 双重限定在会话目录内
+    // GET /api/editor/session/:id/asset/* —— 会话资源文件流（相对 editor/ 目录：assets/...）
+    // 安全：拒绝 ../ 跨目录、/ 绝对路径、协议前缀，并经 safeResolve 双重限定在 editor/ 目录内
     if (req.method === "GET" && rest.startsWith("asset/")) {
       const rel = decodeURIComponent(rest.slice("asset/".length));
       const rawUnsafe = rel.includes("..") || rel.startsWith("/") || /^[a-z]+:/i.test(rel);
-      const abs = rawUnsafe ? null : safeResolve(dir, rel);
+      const abs = rawUnsafe ? null : safeResolve(path.join(dir, "editor"), rel);
       if (!abs || !fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
         return errJson(res, 404, "ASSET_NOT_FOUND", "资源不存在或路径越界：" + rel);
       }
@@ -268,6 +273,55 @@ export async function handleEditorApi(req: http.IncomingMessage, res: http.Serve
       res.writeHead(200, { "Content-Type": mime[path.extname(abs).toLowerCase()] ?? "application/octet-stream" });
       fs.createReadStream(abs).pipe(res);
       return;
+    }
+
+    // POST /api/editor/session/:id/convert —— Converter 集成（Task 6）：
+    // 以会话 editor/index.html 为流水线输入（companion styles.css 经 <link> 注入组装临时输入，
+    // Converter 零改动；资源相对解析基于 editor/ 目录）
+    if (req.method === "POST" && rest === "convert") {
+      const raw = await readBody(req);
+      let body: { outPkgName?: string; width?: number; height?: number };
+      try {
+        body = JSON.parse(raw.toString("utf-8"));
+      } catch {
+        return errJson(res, 400, "BAD_JSON", "请求体不是合法 JSON");
+      }
+      const meta = JSON.parse(readText(path.join(dir, "meta.json"))!) as Meta;
+      const pkgName = body.outPkgName ?? id + "-pkg";
+      if (!ID_RE.test(pkgName)) return errJson(res, 400, "BAD_PKG_NAME", "包名必须匹配 ^[A-Za-z0-9_-]{1,64}$");
+      const outPkgDir = path.join(assetsRoot, pkgName);
+      if (fs.existsSync(outPkgDir)) {
+        return errJson(res, 400, "PKG_EXISTS", "输出包已存在（不覆盖）：" + pkgName);
+      }
+      // 组装临时输入：body 片段前注入 <link>，样式相对解析即命中 editor/styles.css
+      const html = readText(path.join(dir, "editor", "index.html")) ?? "";
+      const css = readText(path.join(dir, "editor", "styles.css")) ?? "";
+      const inputHtml = (css.trim() ? '<link rel="stylesheet" href="styles.css">\n' : "") + html;
+      const inputFile = path.join(dir, "editor", "__convert_input.html");
+      atomicWrite(inputFile, inputHtml);
+      try {
+        const result = runPipeline({
+          htmlFile: inputFile,
+          outPkgDir,
+          width: body.width ?? meta.canvas.width,
+          height: body.height ?? meta.canvas.height,
+        });
+        const report = {
+          ...result,
+          inputHtml: "editor/index.html",
+          nodeTotal: result.report.total,
+          skippedCount: result.report.skipped.length,
+          assets: listAssets(dir),
+        };
+        atomicWrite(path.join(dir, "output", "validation-report.json"), JSON.stringify(report, null, 2));
+        return json(res, 200, { pkgId: result.pkgId, files: result.files, report, validation: result.validation, outDir: outPkgDir });
+      } finally {
+        try {
+          fs.unlinkSync(inputFile);
+        } catch {
+          // 临时输入文件已不存在（extractor 会自行清理同名 .extract.html）
+        }
+      }
     }
 
     return errJson(res, 404, "NOT_FOUND", "未知编辑器路由：" + pathname);

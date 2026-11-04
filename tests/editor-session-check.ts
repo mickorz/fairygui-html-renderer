@@ -25,8 +25,11 @@ function ok(cond: boolean, label: string): void {
 
 const wsRoot = fs.mkdtempSync(path.join(os.tmpdir(), "editor-ws-"));
 process.env.FGUI_EDITOR_WORKSPACE = wsRoot;
+// convert 输出根用临时工程（写 <assetsRoot>/<pkg>，不污染只读 fixtures）
+const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "editor-proj-"));
+fs.mkdirSync(path.join(projRoot, "assets"), { recursive: true });
 
-const apiServer = createApp({ rootDir: path.resolve("tests/fixtures/workspace") });
+const apiServer = createApp({ rootDir: projRoot });
 await new Promise<void>((r) => apiServer.listen(0, "127.0.0.1", r));
 const apiPort = (apiServer.address() as AddressInfo).port;
 const apiBase = `http://127.0.0.1:${apiPort}`;
@@ -66,8 +69,8 @@ const PIC = fs.readFileSync(path.resolve("tests/fixtures/convert/images/pic.png"
   ok(r3.status === 400, "API3 非法会话名 400（目录穿越拒绝）");
 
   // 4. 读取（含 assets 清单）
-  fs.mkdirSync(path.join(wsRoot, "s1", "assets"), { recursive: true });
-  fs.writeFileSync(path.join(wsRoot, "s1", "assets", "pic.png"), PIC);
+  fs.mkdirSync(path.join(wsRoot, "s1", "editor", "assets"), { recursive: true });
+  fs.writeFileSync(path.join(wsRoot, "s1", "editor", "assets", "pic.png"), PIC);
   const r4 = await api("GET", "/api/editor/session/s1");
   const d4 = JSON.parse(r4.body) as { html: string; projectData: unknown; assets: string[]; sourceRevision: string };
   ok(r4.status === 200 && d4.html === HTML1 && d4.projectData === null, "API4 读取会话（html=原稿，projectData=null）");
@@ -111,6 +114,34 @@ const PIC = fs.readFileSync(path.resolve("tests/fixtures/convert/images/pic.png"
   // 11. 未知会话
   const r11 = await api("GET", "/api/editor/session/nope");
   ok(r11.status === 404 && JSON.parse(r11.body).error.code === "SESSION_NOT_FOUND", "API11 未知会话 404");
+
+  // 12. convert（Converter 集成闭环）：editor/index.html 输入 -> 隔离新包 + 报告落盘
+  const r12 = await api("POST", "/api/editor/session/s1/convert", { outPkgName: "pkg-a" });
+  const d12 = JSON.parse(r12.body) as { pkgId: string; files: string[]; report: { nodeTotal: number; assets: string[]; inputHtml: string }; validation: { matched: number } };
+  ok(
+    r12.status === 200 && !!d12.pkgId && d12.files.some((f) => f.endsWith("Root.xml")),
+    "API12 convert 生成隔离新包（" + d12.pkgId + "，文件 " + d12.files.length + " 个）",
+  );
+  ok(fs.existsSync(path.join(projRoot, "assets", "pkg-a", "Root.xml")), "API12 包落盘 <工程assets>/pkg-a/Root.xml");
+  ok(
+    d12.report.inputHtml === "editor/index.html" && d12.report.nodeTotal > 0 && d12.report.assets.includes("assets/pic.png"),
+    "API12 报告字段（输入路径/节点总数/资源清单，assets=" + d12.report.assets.join(",") + "）",
+  );
+  ok(d12.validation.matched > 0, "API12 回读对照（matched=" + d12.validation.matched + "）");
+  const repFile = JSON.parse(fs.readFileSync(path.join(wsRoot, "s1", "output", "validation-report.json"), "utf-8")) as { inputHtml: string };
+  ok(repFile.inputHtml === "editor/index.html", "API12 validation-report.json 落盘会话 output/");
+
+  // 12b. 重复 convert 拒绝覆盖
+  const r12b = await api("POST", "/api/editor/session/s1/convert", { outPkgName: "pkg-a" });
+  ok(r12b.status === 400 && JSON.parse(r12b.body).error.code === "PKG_EXISTS", "API12b 已存在包 400 PKG_EXISTS（不覆盖）");
+
+  // 12c. 非法包名
+  const r12c = await api("POST", "/api/editor/session/s1/convert", { outPkgName: "../evil" });
+  ok(r12c.status === 400, "API12c 非法包名 400");
+
+  // 12d. Renderer bare 回读新包
+  const r12d = await api("GET", "/view?component=pkg-a/Root.xml&bare=1");
+  ok(r12d.status === 200 && r12d.body.includes("body"), "API12d Renderer bare 回读新包（" + r12d.status + "）");
 }
 
 console.log("API 断言：" + pass + " 通过 / " + fail + " 失败");
@@ -136,9 +167,9 @@ try {
   await page.waitForFunction(() => (window as unknown as { __editorReady?: boolean }).__editorReady === true);
 
   // bs1 会话：带真实资源 + CSS url() 背景
-  fs.mkdirSync(path.join(wsRoot, "bs1", "assets"), { recursive: true });
-  fs.copyFileSync(path.join(wsRoot, "s1", "assets", "pic.png"), path.join(wsRoot, "bs1", "assets", "pic.png"));
-  fs.copyFileSync(path.join(wsRoot, "s1", "assets", "pic.png"), path.join(wsRoot, "bs1", "assets", "pic2.png"));
+  fs.mkdirSync(path.join(wsRoot, "bs1", "editor", "assets"), { recursive: true });
+  fs.copyFileSync(path.join(wsRoot, "s1", "editor", "assets", "pic.png"), path.join(wsRoot, "bs1", "editor", "assets", "pic.png"));
+  fs.copyFileSync(path.join(wsRoot, "s1", "editor", "assets", "pic.png"), path.join(wsRoot, "bs1", "editor", "assets", "pic2.png"));
   const bsHtml = `<div id="canvas"><div class="bg-block" style="position:absolute;left:20px;top:20px;width:100px;height:60px;background-image:url(assets/pic.png)"></div><img class="hero" data-fgui-node-id="node_hero" src="assets/pic.png" style="position:absolute;left:200px;top:100px;width:120px;height:90px"></div>`;
   const bsCss = `#canvas { position: relative; width: 750px; height: 1334px; } .bg-block { border-radius: 8px; }`;
   await api("POST", "/api/editor/session", { name: "bs1", html: bsHtml, css: bsCss });
@@ -257,6 +288,7 @@ try {
   await vite?.close();
   apiServer.close();
   fs.rmSync(wsRoot, { recursive: true, force: true });
+  fs.rmSync(projRoot, { recursive: true, force: true });
 }
 
 console.log("Editor Session 断言：" + pass + " 通过 / " + fail + " 失败");

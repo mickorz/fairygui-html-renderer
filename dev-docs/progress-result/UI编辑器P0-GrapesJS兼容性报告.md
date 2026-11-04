@@ -44,7 +44,13 @@
 
 ### 问题 4：导出的 HTML 能否被现有 Converter 正确处理？
 
-**待 Task 6 验证**（convert 闭环后回填本节）。静态有利条件：导出 HTML 保留 `#canvas` 结构、内联 style、原始相对资源路径，与现有 `extractFromHtml` 的输入约定完全一致。
+**结论：能（Task 6 验证，check:editor convert 断言 + check:convert sessionlike 样本，2026-11-04）**，且 **Converter 零改动**：
+
+- 输入组装：convert 路由以会话 `editor/index.html` 为流水线输入；`editor/styles.css`（类规则样式）经 `<link>` 注入组装临时输入文件（同目录相对解析即命中），转换后删除；
+- 会话资源布局与 Converter 相对解析规则对齐：`editor/index.html + editor/assets/`（fairy-writer 以 htmlDir 解析 src 并复制进包），画布侧经 asset 路由同构映射，导出路径原样保留不做改写；
+- 验证一（check:editor API12 系列）：会话保存态 -> convert -> 隔离新包落盘 `<工程assets>/<pkg>/`（Root.xml/package.xml/images），报告落盘会话 `output/validation-report.json`（沿用 runPipeline 字段 + 输入路径/节点总数/资源清单），回读对照 matched>0，重复 convert 400 PKG_EXISTS 不覆盖，Renderer `?bare=1` 回读 200；
+- 验证二（check:convert sessionlike 样本）：会话形态输入（body 片段 + `<link>` 独立 styles.css + assets/ 子目录）零改动走 runPipeline——类规则定位/颜色经渲染后提取、资源按 htmlDir 相对解析复制进包、回读坐标 ±1px、确定性 id；
+- 待 Task 7：转换后 bare 回读截图与编辑器画布对照（e2e convert.spec）；T17 真实 FairyGUI 编辑器人工验收由用户实机执行。
 
 ---
 
