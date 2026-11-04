@@ -72,12 +72,15 @@ const SEARCH_LIMIT = 50;
 
 /** 递归收集匹配节点：name / id / 可读路径不区分大小写子串匹配 */
 function collectMatches(nodes: ParsedNode[], q: string, component: string, out: SearchHit[]): void {
+  // component（包/组件相对路径）小写化缓存：包名或组件文件名也可作为搜索词
+  const compLower = component.toLowerCase();
   for (const n of nodes) {
     if (out.length >= SEARCH_LIMIT) return;
     const hit =
       n.name.toLowerCase().includes(q) ||
       n.id.toLowerCase().includes(q) ||
-      (n.instancePath ?? "").toLowerCase().includes(q);
+      (n.instancePath ?? "").toLowerCase().includes(q) ||
+      compLower.includes(q);
     if (hit) {
       out.push({
         component,

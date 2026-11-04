@@ -3,7 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { loadPackage } from "../parser/package-parser.js";
 import { getComponent, buildScene, clearCache } from "../scene/scene-builder.js";
-import { listPackages, searchWorkspace } from "../scene/workspace.js";
+import { listPackages, searchWorkspace, listComponents } from "../scene/workspace.js";
 import { toSceneJson } from "../scene/scene-json.js";
 import { renderHtml } from "../renderer/html-renderer.js";
 import { indexHtml } from "./index-html.js";
@@ -104,17 +104,10 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, root: 
     if (!pkgDir || !fs.existsSync(path.join(pkgDir, "package.xml"))) {
       return json(res, 404, { error: `包不存在: ${pkgName}` });
     }
-    const pkg = loadPackage(pkgDir);
-    const components = pkg.resources
-      .filter((r) => r.kind === "component")
-      .map((r) => ({
-        id: r.id,
-        name: r.name,
-        exported: r.kind === "component" ? r.exported : false,
-        // 组件相对 assets 的路径（scene/view 接口的 component 参数值）
-        component: `${pkgName}/${r.name}`,
-      }));
-    return json(res, 200, { package: pkgName, packageId: pkg.id, components });
+    // 共用 workspace.listComponents（含包内子目录 path 拼接）
+    const listing = listComponents(root, pkgName);
+    if (!listing) return json(res, 404, { error: `包不存在: ${pkgName}` });
+    return json(res, 200, { package: pkgName, packageId: listing.packageId, components: listing.components });
   }
 
   // Scene Tree JSON（AI 与前端共用的核心数据模型）
