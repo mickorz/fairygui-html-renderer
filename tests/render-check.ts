@@ -72,6 +72,18 @@ const order = ["n6", "n7", "n8", "n9", "n11", "n12", "n14", "n15", "n16", "n17",
 const positions = order.map((id) => demoHtml.indexOf(`data-fgui-id="${id}"`));
 check("displayList 全序保持（12 节点）", positions.every((p, i) => p >= 0 && (i === 0 || p > positions[i - 1])));
 
+// ===== 字体：系统字体名透传，BMFont 位图字体上报 =====
+const mainHtml = renderHtml(
+  buildScene(getComponent(path.join(basicsDir, "Main.xml")), { pkg: basicsPkg, root: path.resolve("CC-Default") }),
+  { pkg: basicsPkg, toAssetUrl: (f) => f },
+);
+check("系统字体名透传（微软雅黑）", mainHtml.includes("font-family:微软雅黑, Arial, sans-serif"));
+const mainUnsupported = renderHtml(
+  buildScene(getComponent(path.join(basicsDir, "Demo_Text.xml")), { pkg: basicsPkg, root: path.resolve("CC-Default") }),
+  { pkg: basicsPkg, toAssetUrl: (f) => f },
+);
+check("BMFont 位图字体上报未支持（Demo_Text）", mainUnsupported.includes("位图字体（BMFont）未实现"));
+
 // ===== A2：构建与缓存分离 =====
 const aComp = getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/CycleA.xml"));
 const a1 = buildScene(aComp, { pkg: fxPkg() });

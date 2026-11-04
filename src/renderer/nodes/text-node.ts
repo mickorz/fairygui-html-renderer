@@ -80,6 +80,16 @@ export function renderTextNode(input: NodeRenderInput): string {
   if (autoSize === "both") style.push("width:auto", "height:auto"); // R23：Both 不换行随内容（见 white-space）
   const fontSize = Number(fontSizeOverride ?? node.attrs.fontSize ?? 12);
   style.push(`font-size:${fontSize}px`);
+  // 字体：非 ui:// 字体名透传（微软雅黑/Comic Sans MS 等）；ui:// 位图字体（BMFont .fnt）上报未支持；
+  // 缺省 Arial 对齐 FairyGUI 默认字体（中文经浏览器回退，与 Unity Arial 回退行为一致）
+  const fontAttr = node.attrs.font;
+  if (fontAttr) {
+    if (fontAttr.startsWith("ui://")) {
+      unsupported.push({ nodeId: node.id, reason: `font=${fontAttr} 位图字体（BMFont）未实现` });
+    } else {
+      style.push(`font-family:${fontAttr}, Arial, sans-serif`);
+    }
+  }
   // 行高：对齐 FairyGUI 排版公式（缺省 leading=3）
   const leading = Number(node.attrs.leading ?? 3);
   style.push(`line-height:${Math.round(fontSize * 1.25) + leading - 1}px`);
