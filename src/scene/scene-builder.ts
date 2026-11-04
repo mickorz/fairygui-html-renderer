@@ -94,7 +94,7 @@ export function buildScene(comp: ParsedComponent, opts: SceneOptions, ctx?: Buil
       const url = iconUrl ?? copy.attrs.url;
       if (url?.startsWith("ui://")) {
         const hit = parseUiUrl(url, globalIndexOf(opts.root));
-        if (hit?.resource.kind === "image") {
+        if (hit?.resource.kind === "image" || (hit?.resource.kind === "other" && hit.resource.type === "movieclip")) {
           copy.loaderRes = hit.resource;
         } else if (hit?.resource.kind === "component") {
           expandLoaderComponent(copy, hit, opts, fullStack);
@@ -132,7 +132,7 @@ export function buildScene(comp: ParsedComponent, opts: SceneOptions, ctx?: Buil
         keyPrefix: childKeyPrefix,
       }),
     };
-    injectExtensionProps(copy);
+    injectExtensionProps(copy, opts, fullStack);
     // R20：实例级页覆盖：controller 属性为 name,pageId 逗号对，覆写子场景控制器初始页（gear 求值链自动生效）
     applyInstanceControllers(copy.childComp.comp, copy.attrs.controller);
     return copy;
@@ -178,16 +178,22 @@ function expandLoaderComponent(
 }
 
 /**
- * 扩展组件属性注入（E3）：<Label title="Bag"/> 把 title 写入子场景 name="title" 的 text 节点。
+ * 扩展组件属性注入（E3）：<Label title="Bag"/> 把 title 写入子场景 name="title" 的 text 节点；
+ * <Button icon="ui://..."/> 把 icon 写入 name="icon" 的 loader 并解析 url（与 title 同机制，真实样本 Demo_Button/Demo_Label 实测）。
  * copy.childComp.comp 是本次构建的新副本，直接修改不会污染缓存。
  */
-function injectExtensionProps(copy: ParsedNode): void {
+function injectExtensionProps(copy: ParsedNode, opts: SceneOptions, stack: string[]): void {
   const props = copy.extensionProps;
   const child = copy.childComp?.comp;
   if (!props || !child) return;
-  const title = props.Label?.title ?? props.Button?.title ?? props.Title?.title;
+  const buttonOrLabel = props.Button ?? props.Label ?? props.Title;
+  const title = buttonOrLabel?.title;
   if (title !== undefined) {
     applyTitle(child, title);
+  }
+  const icon = buttonOrLabel?.icon;
+  if (icon !== undefined && opts.root) {
+    applyIcon(child, icon, opts, globalIndexOf(opts.root), stack);
   }
 }
 
@@ -251,8 +257,9 @@ function applyIcon(scene: ParsedComponent, icon: string, opts: SceneOptions, ind
       n.attrs = { ...n.attrs, url: icon };
       if (icon.startsWith("ui://")) {
         const hit = parseUiUrl(icon, index);
-        if (hit?.resource.kind === "image") n.loaderRes = hit.resource;
-        else if (hit?.resource.kind === "component") expandLoaderComponent(n, hit, opts, stack);
+        if (hit?.resource.kind === "image" || (hit?.resource.kind === "other" && hit.resource.type === "movieclip")) {
+          n.loaderRes = hit.resource;
+        } else if (hit?.resource.kind === "component") expandLoaderComponent(n, hit, opts, stack);
       }
       continue;
     }

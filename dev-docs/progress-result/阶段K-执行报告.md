@@ -41,6 +41,13 @@
 - package.xml 登记 movieclip m_a / component c_p3
 - tests/render-check.ts：新增 10 项断言（render 套件累计 78 项）
 
+## 补丁（同日）：按钮 icon 扩展注入遗漏修复
+
+- 发现：用户浏览器实测指出按钮图标缺失；排查为 E3 扩展属性注入只做了 title、漏了 icon（非设计取舍）。
+- 修复：injectExtensionProps 补 icon（复用 R11 的 applyIcon，Button/Label/Title 三个扩展键同源）；applyIcon 与 buildScene 的 loader url 解析扩 movieclip 分支，loader 渲染 jta 首帧（renderJtaFrame 从 renderJtaNode 提取复用）。
+- 实测：Demo_Button 5/5 图标（3 个空为 Tab 按钮未传 icon，符合语义）；Demo_Label image 型与 jta 型图标各 1 全渲染，未支持清单清零。
+- 断言：render 套件 78 -> 80 项全绿（ButtonIcon.xml 夹具 + btnImgIcon/btnJtaIcon 两实例断言）。
+
 ## 遗留（按触发条件，见 P3 清单文档）
 
 - text font 属性（CC-Default 10 次）：需包级字体资源收集 + @font-face，字体需求出现再做

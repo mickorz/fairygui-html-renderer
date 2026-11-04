@@ -23,5 +23,11 @@
     <graph id="n8" name="d2Hidden" xy="0,60" size="10,10" type="rect" fillColor="#ffff0000">
       <gearDisplay2 controller="c_g2" pages="1" condition="0"/>
     </graph>
+    <component id="n9" name="btnImgIcon" xy="380,0" size="30,30" src="c_bi">
+      <Button icon="ui://test01i_a"/>
+    </component>
+    <component id="n10" name="btnJtaIcon" xy="380,40" size="30,30" src="c_bi">
+      <Button icon="ui://test01m_a"/>
+    </component>
   </displayList>
 </component>

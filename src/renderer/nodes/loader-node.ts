@@ -1,5 +1,6 @@
 import type { NodeRenderInput } from "../types.js";
 import { renderComponentNode } from "./component-node.js";
+import { renderJtaFrame } from "./jta-node.js";
 import { baseStyle, dataAttrs, esc, tintStyle } from "../utils.js";
 
 // loader 节点渲染：url 指向包内 image 时渲染图片内容（scene-builder 已解析为 loaderRes）；
@@ -25,6 +26,10 @@ export function renderLoaderNode(input: NodeRenderInput): string {
   if (node.childComp) return renderComponentNode(input);
   const attrs = dataAttrs(node, comp.file);
   const res = node.loaderRes;
+  // url/gearIcon 指向包内 movieclip（jta）：静态渲染首帧（Demo_Label 按钮 jta 图标实测）
+  if (res?.kind === "other" && res.type === "movieclip") {
+    return renderJtaFrame(input, res.file, Number(node.attrs.frame || 0) || 0);
+  }
   if (!res) {
     const style = [`${gearStyle}${baseStyle(geo, node)}`];
     style.push("background:rgba(255,255,255,.08);border:1px solid #666");

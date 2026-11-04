@@ -196,6 +196,9 @@ check("K：gearFontSize 默认页字号覆盖", /data-fgui-name="gearFontSizeFie
 check("K：gearIcon 默认页 url 覆盖（无 attrs.url）", /data-fgui-name="gearIconLoader"[^>]*><img src="[^"]*pic\.png"/.test(flat(p3Html)));
 check("K：gearAni 默认页帧号", /data-fgui-name="animGearAni"[^>]*><img[^>]*left:5px;top:10px;width:30px;height:26px/.test(flat(p3Html)));
 check("K：gearDisplay2 页成员可见性（首页不在 pages -> 隐藏）", /data-fgui-name="d2Hidden"[^>]*visibility:hidden/.test(flat(p3Html)));
+// 按钮 icon 扩展属性注入（与 title 同机制，Demo_Button/Demo_Label 实测遗漏后补）
+check("K：Button icon 注入 image 型（写入 name=icon loader）", /data-fgui-name="btnImgIcon"[\s\S]*?data-fgui-name="icon"[^>]*><img[^>]*pic\.png/.test(p3Html));
+check("K：Button icon 注入 movieclip 型（loader 渲染 jta 首帧）", /data-fgui-name="btnJtaIcon"[\s\S]*?data-fgui-name="icon"[^>]*><img src="data:image\/png;base64/.test(p3Html));
 
 if (failed > 0) {
   console.error(`检查失败 ${failed} 项`);
