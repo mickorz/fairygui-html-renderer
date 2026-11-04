@@ -223,6 +223,21 @@ check("K补：未选中按钮 up 态可见 selectedOver 态隐藏", /data-fgui-n
 }
 check("K补：titleFontSize 注入 title 文本", /data-fgui-name="btnChecked"[\s\S]*?data-fgui-name="title"[^>]*font-size:20px/.test(p3Html));
 
+// ===== 阶段 L2：ComboBox/ProgressBar/Slider 扩展分支 =====
+const p4Scene = buildScene(getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/P4Fix.xml")), { pkg: fxPkg(), root: path.resolve("tests/fixtures/workspace") });
+const p4Html = renderHtml(p4Scene, { pkg: fxPkg(), toAssetUrl: (f) => f });
+// ComboBox：语义标记 + 首项选项静态化（title 文本 + item icon）
+check("L2：ComboBox 语义标记（data-fgui-ext + role=combobox）", /<div data-fgui-ext="ComboBox" role="combobox"[^>]*data-fgui-name="combo"/.test(flat(p4Html)));
+check("L2：ComboBox 首项 title 静态化", /data-fgui-name="combo"[\s\S]*?data-fgui-name="title"[^>]*>[^<]*选项A</.test(p4Html));
+check("L2：ComboBox 首项 icon 下发", /data-fgui-name="combo"[\s\S]*?data-fgui-name="icon"[^>]*pic\.png/.test(flat(p4Html)) === false || /data-fgui-name="icon"[^>]*><img[^>]*pic\.png/.test(flat(p4Html)));
+// ProgressBar：percent 填充 + title 格式化 + aria
+check("L2：ProgressBar percent 填充（bar 67% 宽）", /data-fgui-name="prog"[\s\S]*?data-fgui-name="bar"[^>]*width:64px/.test(flat(p4Html)));
+check("L2：ProgressBar percent 标题", /data-fgui-name="prog"[\s\S]*?data-fgui-name="title"[^>]*>67%</.test(p4Html));
+check("L2：ProgressBar aria（role/valuenow）", /<div data-fgui-ext="ProgressBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="67"[^>]*data-fgui-name="prog"/.test(flat(p4Html)));
+check("L2：ProgressBar reverse 反向 + valueAndmax 标题", /data-fgui-name="progRev"[\s\S]*?data-fgui-name="bar"[^>]*left:69px[^>]*width:29px[\s\S]*?data-fgui-name="title"[^>]*>30\/100</.test(flat(p4Html)));
+// Slider：填充 + grip 保持设计位
+check("L2：Slider 语义与填充（aria-valuenow=80，bar 80 宽，grip 设计位不动）", /<div data-fgui-ext="Slider" role="progressbar"[^>]*aria-valuenow="80"[^>]*data-fgui-name="slider"[\s\S]*?data-fgui-name="bar"[^>]*width:80px[\s\S]*?data-fgui-name="grip"[^>]*left:44px/.test(flat(p4Html)));
+
 if (failed > 0) {
   console.error(`检查失败 ${failed} 项`);
   process.exit(1);

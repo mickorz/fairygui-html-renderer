@@ -40,6 +40,8 @@ export interface ParsedNode {
   gears: Gear[];
   /** component 节点的扩展设置子元素（如 <Label title="Bag"/> -> { Label: { title: "Bag" } }） */
   extensionProps?: Record<string, Record<string, string>>;
+  /** 扩展元素 item 子元素列表（ComboBox 选项等）：<ComboBox><item title=".." icon=".."/></ComboBox> */
+  extensionItems?: Record<string, string>[];
   /** list 节点的 item 子元素数量 */
   itemCount?: number;
   /** list 节点 item 子元素的原始属性（title/icon 等，逐项下发用） */
@@ -77,7 +79,10 @@ export interface ParsedComponent {
   /** 组件级溢出策略：visible / hidden / scroll（hidden/scroll 需裁剪视口） */
   overflow?: string;
   /** 组件扩展类型（Button/Label/ComboBox 等） */
+  /** 组件扩展类型：extention="Button"/"ComboBox"/"ProgressBar"/"Slider"/"Label"...（发布 XML 拼写 extention） */
   extension?: string;
+  /** 根级扩展元素定义级属性（如 <ProgressBar value="67"/>；实例级同名覆盖） */
+  rootExtension?: Record<string, Record<string, string>>;
   controllers: Controller[];
   /** displayList 节点，保持 XML 原始顺序 */
   nodes: ParsedNode[];
@@ -135,15 +140,24 @@ const GEAR_KINDS: { tag: string; kind: Gear["kind"] }[] = [
   { tag: "gearAni", kind: "ani" },
 ];
 
-/** component 节点上的扩展设置子元素：<Label title="Bag"/> -> { Label: { title: "Bag" } } */
-function parseExtensionProps(inner: OrderItem[]): Record<string, Record<string, string>> | undefined {
+/** component 节点上的扩展设置子元素：<Label title="Bag"/> -> { Label: { title: "Bag" } }；item 子元素单独收集（多选项不被覆盖） */
+function parseExtensionProps(inner: OrderItem[]): { props: Record<string, Record<string, string>>; items: Record<string, string>[] } {
   const props: Record<string, Record<string, string>> = {};
+  const items: Record<string, string>[] = [];
   for (const item of inner) {
     const tag = tagOf(item);
     if (!tag || tag === ":@" || tag.startsWith("gear")) continue;
+    if (tag === "item") {
+      items.push(attrsOf(item));
+      continue;
+    }
     props[tag] = attrsOf(item);
+    // item 子元素嵌套在扩展元素内（如 <ComboBox><item title="..."/></ComboBox>，实测 CC-Default）
+    for (const sub of childrenOf(item, tag)) {
+      if (tagOf(sub) === "item") items.push(attrsOf(sub));
+    }
   }
-  return Object.keys(props).length ? props : undefined;
+  return { props, items };
 }
 
 /** 解析节点内容数组中的 gearXxx 子元素 */
@@ -213,8 +227,12 @@ export function parseComponent(xmlFile: string): ParsedComponent {
         src: e.src,
         attrs: e,
         gears: parseGears(childrenOf(item, type)),
-        extensionProps: parseExtensionProps(childrenOf(item, type)),
       };
+      {
+        const { props, items } = parseExtensionProps(childrenOf(item, type));
+        if (Object.keys(props).length) node.extensionProps = props;
+        if (items.length) node.extensionItems = items;
+      }
       if (type === "list") {
         // list 的 item 子元素（静态渲染时按 defaultItem 展开，逐项属性下发用）
         const itemEls = childrenOf(item, type).filter((i2) => tagOf(i2) === "item");
@@ -228,12 +246,20 @@ export function parseComponent(xmlFile: string): ParsedComponent {
     }
   }
 
+  // 根级扩展元素（定义级属性，如 <ProgressBar value="67"/>）：实例级同名属性覆盖定义级（OpenFairy 语义）
+  const rootExtension: Record<string, Record<string, string>> = {};
+  for (const child of compChildren) {
+    const tag = tagOf(child);
+    if (!tag || tag === ":@" || tag === "controller" || tag === "displayList" || tag.startsWith("gear") || tag === "transition") continue;
+    rootExtension[tag] = attrsOf(child);
+  }
   const ext = compAttrs.extention ?? compAttrs.extension;
   return {
     file: xmlFile,
     size: parsePair(compAttrs.size) ?? [0, 0],
     overflow: compAttrs.overflow,
     extension: ext,
+    rootExtension: Object.keys(rootExtension).length ? rootExtension : undefined,
     controllers,
     nodes,
   };

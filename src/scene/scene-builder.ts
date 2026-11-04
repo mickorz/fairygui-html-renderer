@@ -190,18 +190,78 @@ function expandLoaderComponent(
 function injectExtensionProps(copy: ParsedNode, opts: SceneOptions, stack: string[]): void {
   const props = copy.extensionProps;
   const child = copy.childComp?.comp;
-  if (!props || !child) return;
-  const buttonOrLabel = props.Button ?? props.Label ?? props.Title;
-  const title = buttonOrLabel?.title;
+  if (!child) return;
+  const childExt = child.extension;
+  const buttonOrLabel = props?.Button ?? props?.Label ?? props?.Title;
+  // 定义级（根扩展元素）与实例级同名属性合并：实例级覆盖（OpenFairy 语义）
+  const def = childExt ? child.rootExtension?.[childExt] ?? {} : {};
+  const inst = childExt ? props?.[childExt] ?? {} : {};
+  const merged = { ...def, ...inst };
+  const title = merged.title ?? buttonOrLabel?.title;
   if (title !== undefined) {
     applyTitle(child, title);
   }
-  const icon = buttonOrLabel?.icon;
+  const icon = merged.icon ?? buttonOrLabel?.icon;
   if (icon !== undefined && opts.root) {
     applyIcon(child, icon, opts, globalIndexOf(opts.root), stack);
   }
   // Button 专属语义（button-node 分支的数据层）：checked/titleColor/titleFontSize
-  if (props.Button) injectButtonProps(child, props.Button);
+  if ((props?.Button || childExt === "Button") && Object.keys(merged).length) injectButtonProps(child, merged);
+  // ComboBox：选项静态化（selectedIndex 缺省 0，title 取首项；下拉弹层属运行时不渲染）
+  if (childExt === "ComboBox") {
+    const item = copy.extensionItems?.[0];
+    if (item) {
+      if (item.title !== undefined) applyTitle(child, item.title);
+      if (item.icon !== undefined && opts.root) applyIcon(child, item.icon, opts, globalIndexOf(opts.root), stack);
+    }
+    injectButtonProps(child, merged);
+  }
+  // ProgressBar/Slider：值填充静态化（titleType 四格式 + bar/bar_v 宽高按 percent 缩放，reverse 反向）
+  if (childExt === "ProgressBar" || childExt === "Slider") {
+    injectProgressProps(child, merged);
+  }
+}
+
+/**
+ * ProgressBar/Slider 共用值填充（语义依据 OpenFairy ProgressBar/Slider.Apply 与 Migrate.SetupXxx 源码）：
+ * - percent = clamp01((value-min)/(max-min))，缺省 value=50/max=100/min=0
+ * - title（name="title"）文本 = ProgressTitle.Format：percent -> "N%"，valueAndmax -> "v/m"，value/max -> 原值
+ * - bar（name="bar"）宽 = round(设计宽 * percent)；reverse -> x = 设计x + (设计宽 - w)
+ * - bar_v（name="bar_v"）同理纵向（y 向下与 CSS 同向，reverse 时从底向上填充）
+ * - Slider 的 grip 保持设计位（OpenFairy 烘焙不动 grip，运行时拖动才摆位）
+ */
+function injectProgressProps(child: import("../parser/component-parser.js").ParsedComponent, props: Record<string, string>): void {
+  const num = (k: string, d: number) => (props[k] !== undefined && Number.isFinite(Number(props[k])) ? Number(props[k]) : d);
+  const value = num("value", 50);
+  const max = num("max", 100);
+  const min = num("min", 0);
+  const denom = max - min;
+  const percent = denom > 0 ? Math.min(1, Math.max(0, (value - min) / denom)) : 1;
+  const fmt = (props.titleType ?? "percent").toLowerCase();
+  const titleText = fmt === "valueandmax" ? `${Math.round(value)}/${Math.round(max)}`
+    : fmt === "value" ? `${Math.round(value)}`
+    : fmt === "max" ? `${Math.round(max)}`
+    : `${Math.floor(percent * 100)}%`;
+  for (const n of child.nodes) {
+    if (n.name === "title" && n.type === "text") {
+      n.attrs = { ...n.attrs, text: titleText };
+    } else if (n.name === "bar" && (n.attrs.fillMethod || n.size)) {
+      // SetFillAmount 路径（bar 自带 fillMethod，如 CircleProgress radial360 圆环）：改 fillAmount 而非缩宽（OpenFairy 语义）
+      if (n.attrs.fillMethod) {
+        n.attrs = { ...n.attrs, fillAmount: String(Math.round(percent * 100)) };
+        continue;
+      }
+      const w = Math.round((n.size ?? [0, 0])[0] * percent);
+      const x = props.reverse === "true" ? n.xy[0] + ((n.size ?? [0, 0])[0] - w) : n.xy[0];
+      n.size = [w, (n.size ?? [0, 0])[1]];
+      n.xy = [x, n.xy[1]];
+    } else if (n.name === "bar_v" && n.size) {
+      const h = Math.round(n.size[1] * percent);
+      const y = props.reverse === "true" ? n.xy[1] + (n.size[1] - h) : n.xy[1];
+      n.size = [n.size[0], h];
+      n.xy = [n.xy[0], y];
+    }
+  }
 }
 
 /**

@@ -1,14 +1,19 @@
 import type { NodeRenderInput } from "../types.js";
 import { baseStyle, dataAttrs } from "../utils.js";
 import { renderButtonNode } from "./button-node.js";
+import { renderProgressNode } from "./progress-node.js";
 
 // component 节点渲染：容器 <div> 递归渲染子场景（子节点 absolute 定位相对本容器）
 // 扩展层分发：extention="Button" 的组件走 GButton 独立分支（button-node，语义包装/按钮特化集中地）
 
 export function renderComponentNode(input: NodeRenderInput): string {
-  // 扩展层分发：extention="Button" 的组件走 GButton 独立分支
-  if (input.node.childComp?.comp.extension === "Button") {
+  // 扩展层分发：extention 标记的扩展组件走各自独立分支
+  const ext = input.node.childComp?.comp.extension;
+  if (ext === "Button" || ext === "ComboBox") {
     return renderButtonNode(input);
+  }
+  if (ext === "ProgressBar" || ext === "Slider") {
+    return renderProgressNode(input);
   }
   return renderComponentCore(input);
 }
