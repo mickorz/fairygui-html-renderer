@@ -180,6 +180,23 @@ const p2CapScene = buildScene(getComponent(path.resolve("tests/fixtures/workspac
 const p2CapHtml = renderHtml(p2CapScene, { pkg: fxPkg(), toAssetUrl: (f) => f });
 check("R24：listItemCap 可配置（3 -> vtList 3 项）", p2CapHtml.includes("n12#2~") && !p2CapHtml.includes("n12#3~"));
 
+// ===== 阶段 K（P3 补充批次）：movieclip 首帧 + gear 系列 =====
+const p3Scene = buildScene(getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/P3Fix.xml")), { pkg: fxPkg(), root: path.resolve("tests/fixtures/workspace") });
+const p3Html = renderHtml(p3Scene, { pkg: fxPkg(), toAssetUrl: (f) => f });
+
+// jta 首帧：data URL 内联 + 帧矩形摆放
+check("K：jta 首帧 data URL 渲染", /data-fgui-name="anim0"[^>]*><img src="data:image\/png;base64/.test(flat(p3Html)));
+check("K：jta 首帧帧 0 整图矩形", /data-fgui-name="anim0"[^>]*><img[^>]*left:0px;top:0px;width:61px;height:53px/.test(flat(p3Html)));
+check("K：jta frame 属性指定帧", /data-fgui-name="animFrame1"[^>]*><img[^>]*left:5px;top:10px;width:30px;height:26px/.test(flat(p3Html)));
+check("K：jta 尺寸缺省取动画画布尺寸", /data-fgui-name="anim0"[^>]*width:61px;height:53px/.test(flat(p3Html)));
+// gear 系列（c_g homePage=specific -> 页 1 生效）
+check("K：gearLook alpha/rotation/grayed", /data-fgui-name="lookGraph"[^>]*opacity:0\.54;transform:rotate\(180deg\);filter:grayscale\(1\)/.test(flat(p3Html)));
+check("K：gearText 默认页文本覆盖", p3Html.includes(">GEARED</div>"));
+check("K：gearFontSize 默认页字号覆盖", /data-fgui-name="gearFontSizeField"[^>]*font-size:74px/.test(flat(p3Html)));
+check("K：gearIcon 默认页 url 覆盖（无 attrs.url）", /data-fgui-name="gearIconLoader"[^>]*><img src="[^"]*pic\.png"/.test(flat(p3Html)));
+check("K：gearAni 默认页帧号", /data-fgui-name="animGearAni"[^>]*><img[^>]*left:5px;top:10px;width:30px;height:26px/.test(flat(p3Html)));
+check("K：gearDisplay2 页成员可见性（首页不在 pages -> 隐藏）", /data-fgui-name="d2Hidden"[^>]*visibility:hidden/.test(flat(p3Html)));
+
 if (failed > 0) {
   console.error(`检查失败 ${failed} 项`);
   process.exit(1);

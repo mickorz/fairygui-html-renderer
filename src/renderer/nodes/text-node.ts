@@ -1,5 +1,6 @@
 import type { NodeRenderInput, RenderContext } from "../types.js";
 import { baseStyle, dataAttrs, esc, toCssColor } from "../utils.js";
+import { pickGearValue } from "../gear.js";
 
 // text/richtext 节点渲染：字号/颜色/描边/自动尺寸/对齐；gearColor 默认页覆盖属性色
 // R03：vAlign 垂直对齐 flex 实现；行距按 FairyGUI 公式 round(fontSize*1.25)+leading-1 换算
@@ -64,11 +65,20 @@ export function renderTextNode(input: NodeRenderInput): string {
     if (node.attrs.password === "true") attrs += ` data-fgui-password="true"`;
     if (node.attrs.maxLength !== undefined) attrs += ` data-fgui-maxlength="${esc(node.attrs.maxLength)}"`;
   }
+  // gearText/gearFontSize 默认页取值（FairyGUI gear 语义：覆盖属性）
+  const gearText = node.gears.find((g) => g.kind === "text");
+  const textOverride = gearText
+    ? pickGearValue(gearText, comp.controllers.find((c) => c.name === gearText.controller))
+    : null;
+  const gearFontSize = node.gears.find((g) => g.kind === "fontSize");
+  const fontSizeOverride = gearFontSize
+    ? pickGearValue(gearFontSize, comp.controllers.find((c) => c.name === gearFontSize.controller))
+    : null;
   const style = [`${gearStyle}${baseStyle(geo, node)}`];
   const autoSize = node.attrs.autoSize ?? "none";
   if (autoSize === "height" && geo.size) style.push("height:auto"); // 高度随内容自适应
   if (autoSize === "both") style.push("width:auto", "height:auto"); // R23：Both 不换行随内容（见 white-space）
-  const fontSize = Number(node.attrs.fontSize ?? 12);
+  const fontSize = Number(fontSizeOverride ?? node.attrs.fontSize ?? 12);
   style.push(`font-size:${fontSize}px`);
   // 行高：对齐 FairyGUI 排版公式（缺省 leading=3）
   const leading = Number(node.attrs.leading ?? 3);
@@ -104,10 +114,11 @@ export function renderTextNode(input: NodeRenderInput): string {
     }
   }
   // 文本内容：模板替换 -> 转义 -> UBB 白名单映射（输入框空文本时用 prompt，prompt 自带 UBB 样式）
-  let text = isInput && !node.attrs.text ? node.attrs.prompt ?? "" : node.attrs.text ?? "";
+  const attrText = textOverride ?? node.attrs.text;
+  let text = isInput && !attrText ? node.attrs.prompt ?? "" : attrText ?? "";
   if (node.attrs.vars === "true") text = applyTemplate(text);
-  if (isInput && node.attrs.password === "true" && node.attrs.text) {
-    text = "\u2022".repeat(node.attrs.text.length);
+  if (isInput && node.attrs.password === "true" && attrText) {
+    text = "\u2022".repeat(attrText.length);
   }
   text = esc(text);
   if (node.attrs.ubb === "true" || usingPrompt) text = renderUbb(text, ctx);

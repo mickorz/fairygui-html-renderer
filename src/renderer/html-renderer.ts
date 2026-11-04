@@ -8,6 +8,7 @@ import { renderGraphNode } from "./nodes/graph-node.js";
 import { renderComponentNode } from "./nodes/component-node.js";
 import { renderListNode } from "./nodes/list-node.js";
 import { renderLoaderNode } from "./nodes/loader-node.js";
+import { renderJtaNode } from "./nodes/jta-node.js";
 import type { NodeRenderer, RenderContext, UnsupportedItem } from "./types.js";
 import { baseStyle, dataAttrs, esc, tintFilterDef } from "./utils.js";
 
@@ -33,6 +34,7 @@ const RENDERERS: Record<string, NodeRenderer> = {
   component: renderComponentNode,
   list: renderListNode,
   loader: renderLoaderNode,
+  jta: renderJtaNode, // movieclip 序列帧动画：静态渲染单帧
 };
 
 /** 创建持有本次渲染累积状态（未支持清单/染色集合）的渲染闭包 */
@@ -44,8 +46,8 @@ function createRenderChildren(unsupported: UnsupportedItem[], tints: Set<string>
     stack: string[],
     renderChildren: (comp: ParsedComponent, ctx: RenderContext, stack: string[]) => string,
   ): string {
-    const { hidden, geo, colorOverride } = resolveGear(node, comp);
-    const gearStyle = hidden ? "visibility:hidden;" : "";
+    const { hidden, geo, colorOverride, lookStyle } = resolveGear(node, comp);
+    const gearStyle = [hidden ? "visibility:hidden" : "", lookStyle ?? ""].filter(Boolean).join(";") + (hidden || lookStyle ? ";" : "");
 
     if (node.unsupported || !RENDERERS[node.type]) {
       const reason = node.unsupported ?? `节点类型 ${node.type} 未支持`;

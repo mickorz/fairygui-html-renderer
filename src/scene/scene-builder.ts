@@ -2,6 +2,7 @@ import path from "node:path";
 import { loadPackage, resourceIdOf, type FairyPackage, type Resource } from "../parser/package-parser.js";
 import { parseComponent, type ParsedComponent, type ParsedNode } from "../parser/component-parser.js";
 import { buildGlobalIndex, parseUiUrl, type GlobalIndex } from "./global-index.js";
+import { pickGearValue } from "../renderer/gear.js";
 
 // 场景树构建：递归展开 component 节点引用的子组件 XML
 // A2：构建与缓存分离——getComponent 缓存的解析结果视为不可变原始数据，
@@ -84,12 +85,20 @@ export function buildScene(comp: ParsedComponent, opts: SceneOptions, ctx?: Buil
       return copy;
     }
     // R04/R12：loader url 解析：包内 image 直接渲染；包内 component 展开为子场景（复用 component 范式）
-    if (copy.type === "loader" && copy.attrs.url?.startsWith("ui://") && opts.root) {
-      const hit = parseUiUrl(copy.attrs.url, globalIndexOf(opts.root));
-      if (hit?.resource.kind === "image") {
-        copy.loaderRes = hit.resource;
-      } else if (hit?.resource.kind === "component") {
-        expandLoaderComponent(copy, hit, opts, fullStack);
+    // gearIcon 默认页取值优先于 attrs.url（FairyGUI gearIcon 语义）
+    if (copy.type === "loader" && opts.root) {
+      const gearIcon = copy.gears.find((g) => g.kind === "icon");
+      const iconUrl = gearIcon
+        ? pickGearValue(gearIcon, comp.controllers.find((c) => c.name === gearIcon.controller))
+        : null;
+      const url = iconUrl ?? copy.attrs.url;
+      if (url?.startsWith("ui://")) {
+        const hit = parseUiUrl(url, globalIndexOf(opts.root));
+        if (hit?.resource.kind === "image") {
+          copy.loaderRes = hit.resource;
+        } else if (hit?.resource.kind === "component") {
+          expandLoaderComponent(copy, hit, opts, fullStack);
+        }
       }
     }
     // R13：UBB/富文本内的 [img]ui://x[/img] 构建期预解析为绝对路径（渲染期 toAssetUrl 转 URL）

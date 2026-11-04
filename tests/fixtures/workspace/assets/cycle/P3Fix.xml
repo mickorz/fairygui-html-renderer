@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="400,120">
+  <controller name="c_g" pages="0,,1," homePageType="specific" homePage="1"/>
+  <controller name="c_g2" pages="0,,1,"/>
+  <displayList>
+    <graph id="n1" name="lookGraph" xy="0,0" size="20,20" type="rect" fillColor="#ff00ff00">
+      <gearLook controller="c_g" pages="1" values="0.54,180,1" default="1,0,0"/>
+    </graph>
+    <text id="n2" name="gearTextField" xy="30,0" size="80,20" fontSize="12" text="plain">
+      <gearText controller="c_g" pages="1" values="GEARED" default="plain"/>
+    </text>
+    <text id="n3" name="gearFontSizeField" xy="120,0" size="80,60" fontSize="12" text="size">
+      <gearFontSize controller="c_g" pages="1" values="74" default="33"/>
+    </text>
+    <loader id="n4" name="gearIconLoader" xy="210,0" size="40,40">
+      <gearIcon controller="c_g" pages="1" values="ui://test01i_a" default=""/>
+    </loader>
+    <jta id="n5" name="anim0" xy="260,0" src="m_a"/>
+    <jta id="n6" name="animFrame1" xy="260,60" src="m_a" frame="1"/>
+    <jta id="n7" name="animGearAni" xy="330,0" src="m_a">
+      <gearAni controller="c_g" pages="1" values="1,p,," default="0,p,,"/>
+    </jta>
+    <graph id="n8" name="d2Hidden" xy="0,60" size="10,10" type="rect" fillColor="#ffff0000">
+      <gearDisplay2 controller="c_g2" pages="1" condition="0"/>
+    </graph>
+  </displayList>
+</component>

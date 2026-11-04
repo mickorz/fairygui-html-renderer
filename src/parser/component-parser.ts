@@ -14,7 +14,7 @@ const parser = new XMLParser({
 });
 
 export interface Gear {
-  kind: "display" | "xy" | "size" | "color";
+  kind: "display" | "display2" | "xy" | "size" | "color" | "look" | "text" | "fontSize" | "icon" | "ani";
   controller: string;
   /** 页 id 列表，与 values 一一对应 */
   pages: string[];
@@ -115,12 +115,18 @@ function parsePair(s: string | undefined): [number, number] | undefined {
   return [parts[0] ?? 0, parts[1] ?? 0];
 }
 
-const KNOWN_TYPES = new Set(["image", "text", "richtext", "inputtext", "graph", "group", "component", "list", "loader"]);
+const KNOWN_TYPES = new Set(["image", "text", "richtext", "inputtext", "graph", "group", "component", "list", "loader", "jta"]);
 const GEAR_KINDS: { tag: string; kind: Gear["kind"] }[] = [
   { tag: "gearDisplay", kind: "display" },
+  { tag: "gearDisplay2", kind: "display2" },
   { tag: "gearXY", kind: "xy" },
   { tag: "gearSize", kind: "size" },
   { tag: "gearColor", kind: "color" },
+  { tag: "gearLook", kind: "look" },
+  { tag: "gearText", kind: "text" },
+  { tag: "gearFontSize", kind: "fontSize" },
+  { tag: "gearIcon", kind: "icon" },
+  { tag: "gearAni", kind: "ani" },
 ];
 
 /** component 节点上的扩展设置子元素：<Label title="Bag"/> -> { Label: { title: "Bag" } } */
