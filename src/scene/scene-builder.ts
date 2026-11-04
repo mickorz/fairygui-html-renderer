@@ -68,6 +68,11 @@ export function buildScene(comp: ParsedComponent, opts: SceneOptions, ctx?: Buil
       expandList(copy, opts, { stack: fullStack, parentPath, keyPrefix });
       return copy;
     }
+    // R04：loader url 指向包内 image 时解析出资源供渲染器使用（组件类暂不展开，渲染器上报）
+    if (copy.type === "loader" && copy.attrs.url?.startsWith("ui://") && opts.root) {
+      const hit = parseUiUrl(copy.attrs.url, buildGlobalIndex(opts.root));
+      if (hit && hit.resource.kind === "image") copy.loaderRes = hit.resource;
+    }
     if (copy.type !== "component" || !copy.src) return copy;
     const res = opts.pkg.byId(copy.src);
     if (!res || res.kind !== "component") {

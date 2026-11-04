@@ -117,6 +117,20 @@ const gcScene = buildScene(getComponent(path.resolve("tests/fixtures/workspace/a
 const gcHtml = renderHtml(gcScene, { pkg: fxPkg(), toAssetUrl: (f) => f });
 check("gearColor 默认页覆盖颜色", gcHtml.includes("color:#000000") && !gcHtml.includes("color:#ffffff"));
 
+// ===== 阶段 H（P0 批次）：R01 裁剪 / R02 graph 归一 / R03 排版 / R04 loader =====
+const rfScene = buildScene(getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/RenderFix.xml")), { pkg: fxPkg(), root: path.resolve("tests/fixtures/workspace") });
+const rfHtml = renderHtml(rfScene, { pkg: fxPkg(), toAssetUrl: (f) => f });
+
+check("R02：旧拼写 eclipse 归一为椭圆", /data-fgui-name="oldEllipse"[^>]*border-radius:50%/.test(flat(rfHtml)));
+check("R02：corner 属性显式上报未支持（不再静默错形）", rfHtml.includes("graph corner=4 未实现"));
+check("R03：vAlign=middle 垂直居中 flex", /data-fgui-name="valignText"[^>]*justify-content:center/.test(flat(rfHtml)));
+check("R03：行距公式 fontSize12 leading0 -> 14px", /data-fgui-name="valignText"[^>]*line-height:14px/.test(flat(rfHtml)));
+check("R03：letterSpacing 透传", rfHtml.includes("letter-spacing:2px"));
+check("R04：loader 包内 image url 渲染 img", rfHtml.includes("pic.png") && rfHtml.includes("max-width:100%;max-height:100%"));
+check("R04：loader 无 url 占位不计入未支持", !rfHtml.includes("iconLoader("));
+check("R01：子组件 overflow=hidden 视口裁剪", /data-fgui-name="clipped"[^>]*overflow:hidden/.test(flat(rfHtml)));
+check("R01：overflow=visible 不裁剪", !/data-fgui-name="oldEllipse"[^>]*overflow:hidden/.test(flat(rfHtml)));
+
 if (failed > 0) {
   console.error(`检查失败 ${failed} 项`);
   process.exit(1);

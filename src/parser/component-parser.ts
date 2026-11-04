@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { XMLParser } from "fast-xml-parser";
-import type { FairyPackage } from "./package-parser.js";
+import type { FairyPackage, ImageResource } from "./package-parser.js";
 
 // FairyGUI 组件 XML 解析（有序模式）
 // A1：使用 preserveOrder 保留 displayList 原始混排顺序——绘制层级（z 序）依赖 XML 顺序，
@@ -47,6 +47,8 @@ export interface ParsedNode {
   defaultItemSize?: { w: number; h: number };
   /** component 节点递归展开后的子组件（由 scene-builder 构建填充） */
   childComp?: { file: string; comp: ParsedComponent };
+  /** loader 节点 url 指向包内 image 的解析结果（由 scene-builder 构建填充） */
+  loaderRes?: ImageResource;
   /** 实例路径（如 BagWin.frame.n2），构建时由 buildScene 填充 */
   instancePath?: string;
   /** 稳定键（实例链 pkgId.resId.nodeId~...），构建时由 buildScene 填充，同资源多实例/同名节点可区分 */
@@ -64,6 +66,8 @@ export interface Controller {
 export interface ParsedComponent {
   file: string;
   size: [number, number];
+  /** 组件级溢出策略：visible / hidden / scroll（hidden/scroll 需裁剪视口） */
+  overflow?: string;
   /** 组件扩展类型（Button/Label/ComboBox 等） */
   extension?: string;
   controllers: Controller[];
@@ -191,6 +195,7 @@ export function parseComponent(xmlFile: string): ParsedComponent {
   return {
     file: xmlFile,
     size: parsePair(compAttrs.size) ?? [0, 0],
+    overflow: compAttrs.overflow,
     extension: ext,
     controllers,
     nodes,
