@@ -1,5 +1,5 @@
-// 顶部工具栏（Task 2）：Zoom In/Out/Fit + Undo/Redo + 画布缩放百分比
-// Save/Export/Preview 为 Task 5/6 接线占位，当前禁用
+// 顶部工具栏（Task 5）：Zoom In/Out/Fit + Undo/Redo + 画布缩放百分比 + 保存（会话 PUT）
+// Export/Preview 为 Task 6 接线占位，当前禁用
 import { useCallback, useState, type ReactElement } from "react";
 import { getEditor } from "../grapes/editor-instance";
 import { DEFAULT_CANVAS } from "../grapes/canvas-config";
@@ -8,7 +8,7 @@ const ZOOM_STEP = 10;
 const ZOOM_MIN = 10;
 const ZOOM_MAX = 300;
 
-export default function TopToolbar(): ReactElement {
+export default function TopToolbar({ onSave, saveEnabled }: { onSave: () => void; saveEnabled: boolean }): ReactElement {
   const [zoom, setZoom] = useState(100);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
@@ -74,7 +74,7 @@ export default function TopToolbar(): ReactElement {
       <button className={btn} disabled title="Task 5 接线">
         预览
       </button>
-      <button className={btn} disabled title="Ctrl+S（Task 5 接线）">
+      <button className={btn} disabled={!saveEnabled} onClick={onSave} title="Ctrl+S">
         保存
       </button>
       <button className={btn} disabled title="Task 5/6 接线">

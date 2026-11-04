@@ -195,7 +195,9 @@ export default function PropertyPanel(): ReactElement {
 
       {isImage && (
         <Section title="Image">
-          <TextField label="src" value={attrs["src"] ?? ""} onCommit={(v) => cmp.addAttributes({ src: v })} testId="prop-src" placeholder="资源相对路径" />
+          {/* image 组件 src 规范写路径是 set('src')（触发 change:src -> updateSrc -> addAttributes 同步）；
+              直接 addAttributes 会被 getAttrToHTML 的 getSrcResult() 覆盖回旧值（ComponentImage.ts:89） */}
+          <TextField label="src" value={attrs["src"] ?? ""} onCommit={(v) => cmp.set("src", v)} testId="prop-src" placeholder="资源相对路径" />
           <div className="w-full">
             {/* 预览：相对路径按当前页面 URL 解析；Task 5 接 asset 路由 + iframe base href 后命中会话资源 */}
             {attrs["src"] ? (

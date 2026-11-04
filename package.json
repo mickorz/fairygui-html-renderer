@@ -17,7 +17,8 @@
     "check:adapter": "tsx tests/adapter-check.ts",
     "check:canvas": "tsx tests/canvas-check.ts",
     "check:drag": "tsx tests/drag-check.ts",
-    "check:props": "tsx tests/props-check.ts"
+    "check:props": "tsx tests/props-check.ts",
+    "check:editor": "tsx tests/editor-session-check.ts"
   },
   "dependencies": {
     "grapesjs": "^0.23.9",

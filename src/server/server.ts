@@ -7,6 +7,7 @@ import { listPackages, searchWorkspace, listComponents } from "../scene/workspac
 import { toSceneJson } from "../scene/scene-json.js";
 import { renderHtml } from "../renderer/html-renderer.js";
 import { indexHtml } from "./index-html.js";
+import { handleEditorApi, isEditorApi } from "./editor-session.js";
 
 // 只读工作区服务（阶段 B）：工程导航 + Scene Tree JSON + 资源与渲染视图
 // 安全边界：所有路径参数经统一守卫 safeResolve，解析结果必须仍落在工程根内；全程只读。
@@ -77,6 +78,10 @@ export function createApp(opts: AppOptions): http.Server {
 async function route(req: http.IncomingMessage, res: http.ServerResponse, root: string, assetsRoot: string): Promise<void> {
   const u = new URL(req.url ?? "/", "http://localhost");
   const p = u.pathname;
+  // 编辑器会话 API（Task 5）：POST/PUT 可写，先于只读限制分发
+  if (isEditorApi(p)) {
+    return handleEditorApi(req, res, p);
+  }
   // 场景 B 安全前提：默认只读
   if (req.method !== "GET" && req.method !== "HEAD") {
     return text(res, 405, "只读服务，仅支持 GET", "text/plain; charset=utf-8");
