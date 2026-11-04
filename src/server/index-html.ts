@@ -118,11 +118,11 @@ function loadComponents(pkgName, list) {
       list.innerHTML = "";
       data.components.forEach(function (c) {
         var b = document.createElement("button");
-        b.textContent = c.name.replace(/\\.xml$/, "") + (c.exported ? "" : " (未导出)");
+        b.textContent = c.name.replace(/\.xml$/, "");
         b.onclick = function () {
           list.querySelectorAll("button").forEach(function (x) { x.classList.remove("active"); });
           b.classList.add("active");
-          crumb.textContent = "组件: " + c.component + "  |  资源ID: " + c.id + (c.exported ? "" : "  (未导出)");
+          crumb.textContent = "组件: " + c.component + "  |  资源ID: " + c.id;
           frame.src = "/view?component=" + encodeURIComponent(c.component);
         };
         list.appendChild(b);
