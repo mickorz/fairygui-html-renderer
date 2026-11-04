@@ -10,13 +10,28 @@
     "check:server": "tsx tests/server-check.ts",
     "check:mcp": "tsx tests/mcp-check.ts",
     "mcp": "tsx src/mcp/main.ts",
-    "check:convert": "tsx tests/convert-check.ts"
+    "check:convert": "tsx tests/convert-check.ts",
+    "editor": "vite src/editor",
+    "editor:build": "vite build src/editor"
+  },
+  "dependencies": {
+    "grapesjs": "^0.23.9",
+    "lucide-react": "^1.68.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@tailwindcss/vite": "^4",
     "@types/node": "^26.6.5",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^5",
     "fast-xml-parser": "^5.11.2",
+    "tailwindcss": "^4",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
   },
   "allowScripts": {
     "esbuild@0.28.2": true

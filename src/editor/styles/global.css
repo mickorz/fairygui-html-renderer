@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/* 五区布局：顶栏 / 左图层 / 中画布 / 右属性 / 底状态栏 */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+.editor-layout {
+  display: grid;
+  grid-template-areas:
+    "top top top"
+    "layers canvas props"
+    "status status status";
+  grid-template-rows: 48px 1fr 24px;
+  grid-template-columns: 240px 1fr 280px;
+  height: 100%;
+  background: #1e1e1e;
+  color: #d4d4d4;
+}
+
+.region {
+  overflow: auto;
+  border: 1px solid #333;
+  padding: 8px;
+}
+
+.region-top {
+  grid-area: top;
+}
+
+.region-layers {
+  grid-area: layers;
+}
+
+.region-canvas {
+  grid-area: canvas;
+  background: #2b2b2b;
+}
+
+.region-props {
+  grid-area: props;
+}
+
+.region-status {
+  grid-area: status;
+}
