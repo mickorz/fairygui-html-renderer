@@ -66,6 +66,17 @@
   早期靠猜曾误判 gearColor「编码不匹配」。
 - 注意：该仓库无 LICENSE，只参考解析行为与格式知识，禁止复制源码。
 
+## 渲染器实现硬性规则（踩坑沉淀，详见 dev-docs/experience/）
+
+以下规则来自真实踩坑（阶段 K 补丁系列），实现与排查时自动遵守：
+
+1. **双引号 HTML 属性内禁用双引号**：拼进 `style="..."`、`src="..."` 等双引号属性内的任何值，内嵌引号必须换形（CSS url 用单引号 `url('...')`、文本走 esc()）。新写内联样式拼接时先审一遍内容里有没有 `"`。（坑：九宫格 url("...") 截断 style 属性自上线起一直失效，见 experience/2026-11-04-九宫格url引号截断style属性.md）
+2. **字符串断言不能证明 HTML 合法**：render-check 的 includes/regex 断言只能证明"内容生成过"，不能证明"浏览器解析得了"。border-image/clip-path/filter/mask 等复杂值的链路必须配浏览器 computed style 实测收尾；纯字符串断言绿灯的视觉链路不可信。
+3. **ui:// 解析三形态齐全**：loader/gearIcon/任何解析 `ui://` 的地方，目标资源必须覆盖三种：image / component / movieclip（kind "other" + type "movieclip"，渲染 jta 首帧）。新增解析分支时三者逐项核对。
+4. **划掉独立分支要连带核对属性集**：判定某扩展组件（GButton/GLabel 等）"已展开不需要独立分支"时，必须逐属性 grep 真实样本词表，确认每个属性（title/icon/selected...）都有注入链路；机制复用不等于属性全覆盖。
+5. **多渲染分支对称核对**：同一节点类型的多个渲染分支（img 路径 vs div+border-image 路径）新增分支时，对照旧分支核对公共兑底逻辑（尺寸兑底/对齐/染色）是否要复制。
+6. **改代码不生效先查进程**：排查"改了代码页面没变化"，第一步确认 server 进程启动时间是否早于代码提交（netstat 查端口 PID）。区分"数据不生效"（XML 层 fresh 重解析覆盖）与"代码不生效"（必须重启进程）；长驻服务一律 tsx watch。
+
 ## 示例目录：`dev-examples/` —— 开发期沙盒
 
 1. 开发中的脚本试验、联调配置与临时输出一律放 `dev-examples/`（一主题一子目录，kebab-case），
