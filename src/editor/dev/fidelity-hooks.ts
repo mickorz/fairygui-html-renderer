@@ -1,5 +1,6 @@
 import { createEditorInstance, getEditor } from "../grapes/editor-instance";
 import { loadHtml } from "../grapes/load-html";
+import { installAdapterHooks } from "./adapter-hooks";
 
 // 保真度验证钩子（check:grapes 用；常驻无副作用）
 // 设计要点：几何/样式对比全部在"浏览器渲染后 computed style"层面取值，
@@ -315,6 +316,7 @@ export function installFidelityHooks(): void {
   w.__structureDiff = structureDiff;
   w.__geometrySnapshot = geometrySnapshot;
   w.__cssDiff = cssDiff;
+  installAdapterHooks();
   // React 渲染是异步调度，容器挂载晚于本函数：轮询等到 host 出现再初始化编辑器
   const start = Date.now();
   const timer = setInterval(() => {
