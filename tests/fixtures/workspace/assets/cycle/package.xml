@@ -7,6 +7,7 @@
     <component id="c_gc" name="GearColorText.xml" path="/"/>
     <component id="c_cl" name="Clipped.xml" path="/"/>
     <component id="c_rf" name="RenderFix.xml" path="/"/>
+    <component id="c_p1" name="P1Fix.xml" path="/"/>
     <image id="i_a" name="pic.png" path="/" width="61" height="53"/>
   </resources>
 </packageDescription>

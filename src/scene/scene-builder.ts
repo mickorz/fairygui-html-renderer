@@ -1,7 +1,7 @@
 import path from "node:path";
-import { loadPackage, resourceIdOf, type FairyPackage } from "../parser/package-parser.js";
+import { loadPackage, resourceIdOf, type FairyPackage, type Resource } from "../parser/package-parser.js";
 import { parseComponent, type ParsedComponent, type ParsedNode } from "../parser/component-parser.js";
-import { buildGlobalIndex, parseUiUrl } from "./global-index.js";
+import { buildGlobalIndex, parseUiUrl, type GlobalIndex } from "./global-index.js";
 
 // 场景树构建：递归展开 component 节点引用的子组件 XML
 // A2：构建与缓存分离——getComponent 缓存的解析结果视为不可变原始数据，
@@ -9,6 +9,18 @@ import { buildGlobalIndex, parseUiUrl } from "./global-index.js";
 // B1：instancePath / stableKey 在构建时统一填充，渲染器与 Scene Tree JSON 共用同一份数据。
 
 const compCache = new Map<string, ParsedComponent>();
+// 工程级资源索引缓存（按 root）：loader/list/UBB img 的 ui:// 解析共用，避免逐节点重建
+const globalIndexCache = new Map<string, GlobalIndex>();
+
+function globalIndexOf(root: string): GlobalIndex {
+  const norm = path.normalize(root);
+  let idx = globalIndexCache.get(norm);
+  if (!idx) {
+    idx = buildGlobalIndex(norm);
+    globalIndexCache.set(norm, idx);
+  }
+  return idx;
+}
 
 export interface GetOptions {
   /** 跳过缓存重新解析（文件可能已修改），结果仍回写缓存 */
@@ -29,6 +41,7 @@ export function getComponent(xmlFile: string, opts?: GetOptions): ParsedComponen
 /** 清空解析缓存（A4：供服务化场景的每请求重解析或显式失效使用） */
 export function clearCache(): void {
   compCache.clear();
+  globalIndexCache.clear();
 }
 
 export interface SceneOptions {
@@ -68,10 +81,22 @@ export function buildScene(comp: ParsedComponent, opts: SceneOptions, ctx?: Buil
       expandList(copy, opts, { stack: fullStack, parentPath, keyPrefix });
       return copy;
     }
-    // R04：loader url 指向包内 image 时解析出资源供渲染器使用（组件类暂不展开，渲染器上报）
+    // R04/R12：loader url 解析：包内 image 直接渲染；包内 component 展开为子场景（复用 component 范式）
     if (copy.type === "loader" && copy.attrs.url?.startsWith("ui://") && opts.root) {
-      const hit = parseUiUrl(copy.attrs.url, buildGlobalIndex(opts.root));
-      if (hit && hit.resource.kind === "image") copy.loaderRes = hit.resource;
+      const hit = parseUiUrl(copy.attrs.url, globalIndexOf(opts.root));
+      if (hit?.resource.kind === "image") {
+        copy.loaderRes = hit.resource;
+      } else if (hit?.resource.kind === "component") {
+        expandLoaderComponent(copy, hit, opts, fullStack);
+      }
+    }
+    // R13：UBB/富文本内的 [img]ui://x[/img] 构建期预解析为绝对路径（渲染期 toAssetUrl 转 URL）
+    if (opts.root && copy.attrs.text?.includes("[img]")) {
+      const idx = globalIndexOf(opts.root);
+      copy.attrs.text = copy.attrs.text.replace(/\[img\](ui:\/\/[^\[]*?)\[\/img\]/g, (m, url: string) => {
+        const hit2 = parseUiUrl(url, idx);
+        return hit2 && hit2.resource.kind === "image" ? `[img]${hit2.resource.file}[/img]` : m;
+      });
     }
     if (copy.type !== "component" || !copy.src) return copy;
     const res = opts.pkg.byId(copy.src);
@@ -100,6 +125,31 @@ export function buildScene(comp: ParsedComponent, opts: SceneOptions, ctx?: Buil
     return copy;
   });
   return { ...comp, nodes };
+}
+
+/** loader url 指向包内 component 的展开（R12）：复用 component 节点展开范式（循环防护 + 稳定键续接） */
+function expandLoaderComponent(
+  copy: ParsedNode,
+  hit: { pkgDir: string; resource: Resource },
+  opts: SceneOptions,
+  stack: string[],
+): void {
+  const childFile = path.normalize(hit.resource.file);
+  if (stack.includes(childFile)) {
+    copy.unsupported = `循环引用: ${path.basename(childFile)}`;
+    opts.onCycle?.(childFile, stack);
+    return;
+  }
+  const childPkg = loadPackage(hit.pkgDir);
+  const childResId = resourceIdOf(childPkg, childFile) ?? path.basename(childFile, ".xml");
+  copy.childComp = {
+    file: childFile,
+    comp: buildScene(getComponent(childFile), { pkg: childPkg, root: opts.root }, {
+      stack: [...stack, childFile],
+      parentPath: `${copy.instancePath}`,
+      keyPrefix: `${copy.stableKey}~${childPkg.id}.${childResId}`,
+    }),
+  };
 }
 
 /**
@@ -133,7 +183,7 @@ function expandList(copy: ParsedNode, opts: SceneOptions, ctx: BuildContext): vo
     return;
   }
   const defaultItem = copy.attrs.defaultItem ?? "";
-  const hit = parseUiUrl(defaultItem, buildGlobalIndex(opts.root));
+  const hit = parseUiUrl(defaultItem, globalIndexOf(opts.root));
   if (!hit || hit.resource.kind !== "component") {
     copy.unsupported = `list defaultItem 无法解析: ${defaultItem}`;
     return;
@@ -143,16 +193,34 @@ function expandList(copy: ParsedNode, opts: SceneOptions, ctx: BuildContext): vo
   // GList item 尺寸 = defaultItem 组件的设计尺寸（FairyGUI 语义）
   const itemComp = getComponent(hit.resource.file, { fresh: true });
   copy.defaultItemSize = { w: itemComp.size[0], h: itemComp.size[1] };
+  const index = globalIndexOf(opts.root);
   copy.listItems = [];
   for (let i = 0; i < itemCount; i++) {
-    copy.listItems.push({
-      index: i,
-      pkg: itemPkg,
-      scene: buildScene(itemComp, { pkg: itemPkg, root: opts.root }, {
-        stack: [...ctx.stack, path.normalize(hit.resource.file)],
-        parentPath: `${copy.instancePath}.item${i}`,
-        keyPrefix: `${copy.stableKey}#${i}~${itemPkg.id}.${hit.resource.id}`,
-      }),
+    const scene = buildScene(itemComp, { pkg: itemPkg, root: opts.root }, {
+      stack: [...ctx.stack, path.normalize(hit.resource.file)],
+      parentPath: `${copy.instancePath}.item${i}`,
+      keyPrefix: `${copy.stableKey}#${i}~${itemPkg.id}.${hit.resource.id}`,
     });
+    // R11：item 逐项属性下发：title 写入 name="title" 文本（复用 applyTitle），icon 写入 name="icon" loader 并解析 url
+    const a = copy.items?.[i] ?? {};
+    if (a.title !== undefined) applyTitle(scene, a.title);
+    if (a.icon !== undefined) applyIcon(scene, a.icon, opts, index, ctx.stack);
+    copy.listItems.push({ index: i, pkg: itemPkg, scene });
+  }
+}
+
+/** item icon 下发（R11）：写入场景内 name="icon" 的 loader 节点并解析为图片/组件内容 */
+function applyIcon(scene: ParsedComponent, icon: string, opts: SceneOptions, index: GlobalIndex, stack: string[]): void {
+  for (const n of scene.nodes) {
+    if (n.name === "icon" && n.type === "loader") {
+      n.attrs = { ...n.attrs, url: icon };
+      if (icon.startsWith("ui://")) {
+        const hit = parseUiUrl(icon, index);
+        if (hit?.resource.kind === "image") n.loaderRes = hit.resource;
+        else if (hit?.resource.kind === "component") expandLoaderComponent(n, hit, opts, stack);
+      }
+      continue;
+    }
+    if (n.childComp) applyIcon(n.childComp.comp, icon, opts, index, stack);
   }
 }

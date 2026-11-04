@@ -1,8 +1,10 @@
 import type { NodeRenderInput } from "../types.js";
+import { renderComponentNode } from "./component-node.js";
 import { baseStyle, dataAttrs, esc, tintStyle } from "../utils.js";
 
-// loader 节点渲染：url 指向包内 image 时渲染图片内容（scene-builder 已解析为 loaderRes）
-// fill 五种填充按 FairyGUI FillType 语义映射；无内容时灰底占位（不计入未支持清单）
+// loader 节点渲染：url 指向包内 image 时渲染图片内容（scene-builder 已解析为 loaderRes）；
+// url 指向包内 component 时（childComp，R12）复用 component 渲染；fill 五种填充按 FairyGUI FillType 语义映射；
+// 无内容时灰底占位（不计入未支持清单）
 
 /** FairyGUI FillType -> 图片尺寸样式（等比/单轴/拉伸/裁剪） */
 function fillStyle(fill: string): string {
@@ -18,6 +20,9 @@ function fillStyle(fill: string): string {
 
 export function renderLoaderNode(input: NodeRenderInput): string {
   const { node, comp, ctx, geo, gearStyle, colorOverride, unsupported, tints } = input;
+  // R12：url 指向包内组件（childComp）—— 复用 component 递归渲染；
+  // ponytail: loader 的 fill/autoSize 对组件内容未实现，需要时再按 GLoader 语义补
+  if (node.childComp) return renderComponentNode(input);
   const attrs = dataAttrs(node, comp.file);
   const res = node.loaderRes;
   if (!res) {

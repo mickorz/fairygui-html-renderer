@@ -26,6 +26,7 @@ export interface RenderOptions {
 const RENDERERS: Record<string, NodeRenderer> = {
   image: renderImageNode,
   text: renderTextNode,
+  richtext: renderTextNode, // R13：richtext 复用 text 渲染（ubb 属性驱动富文本映射）
   graph: renderGraphNode,
   component: renderComponentNode,
   list: renderListNode,

@@ -40,8 +40,9 @@ const bagHtml = renderHtml(bagWin, { pkg, toAssetUrl: (f) => f });
 check("嵌套组件 frame 与 closeButton 三层展开", bagHtml.includes('data-fgui-name="frame"') && bagHtml.includes('data-fgui-name="closeButton"'));
 check("九宫格 slice 换算 78 86 66 88", bagHtml.includes("border-image-slice:78 86 66 88"));
 check("9grid 超界 clamp（负 slice 归零）", bagHtml.includes("border-image-slice:1 83 0 83"));
-check("gearXY 默认页取值 n4=(2,13)", /data-fgui-id="n4"[^>]*left:2px;top:13px/.test(flat(bagHtml)));
-check("嵌套内 gearDisplay 隐藏 n1/n3", /data-fgui-id="n1"[^>]*visibility:hidden/.test(flat(bagHtml)) && /data-fgui-id="n3"[^>]*visibility:hidden/.test(flat(bagHtml)));
+check("gearXY 首页取值 n4=(0,10)（R15 初始页规则）", /data-fgui-id="n4"[^>]*left:0px;top:10px/.test(flat(bagHtml)));
+// R15：初始页按 homePage 规则（缺省第一页），编辑器残留 selected 不再影响渲染；c1 首页 -> n1/n3 可见
+check("初始页规则下 gearDisplay 首页节点 n1/n3 可见", !/data-fgui-id="n1"[^>]*visibility:hidden/.test(flat(bagHtml)) && !/data-fgui-id="n3"[^>]*visibility:hidden/.test(flat(bagHtml)));
 // ===== 阶段 E：BagWin 未支持清单清零 + title 注入 + list 展开 + 描边（取代旧的 list/loader 未支持断言） =====
 check("阶段 E：BagWin 未支持清单清零", !bagHtml.includes("未支持"));
 check("阶段 E：标题注入 Bag（覆盖默认窗口标题）", bagHtml.includes(">Bag</div>") && !bagHtml.includes("窗口标题"));
@@ -122,7 +123,6 @@ const rfScene = buildScene(getComponent(path.resolve("tests/fixtures/workspace/a
 const rfHtml = renderHtml(rfScene, { pkg: fxPkg(), toAssetUrl: (f) => f });
 
 check("R02：旧拼写 eclipse 归一为椭圆", /data-fgui-name="oldEllipse"[^>]*border-radius:50%/.test(flat(rfHtml)));
-check("R02：corner 属性显式上报未支持（不再静默错形）", rfHtml.includes("graph corner=4 未实现"));
 check("R03：vAlign=middle 垂直居中 flex", /data-fgui-name="valignText"[^>]*justify-content:center/.test(flat(rfHtml)));
 check("R03：行距公式 fontSize12 leading0 -> 14px", /data-fgui-name="valignText"[^>]*line-height:14px/.test(flat(rfHtml)));
 check("R03：letterSpacing 透传", rfHtml.includes("letter-spacing:2px"));
@@ -130,6 +130,28 @@ check("R04：loader 包内 image url 渲染 img", rfHtml.includes("pic.png") && 
 check("R04：loader 无 url 占位不计入未支持", !rfHtml.includes("iconLoader("));
 check("R01：子组件 overflow=hidden 视口裁剪", /data-fgui-name="clipped"[^>]*overflow:hidden/.test(flat(rfHtml)));
 check("R01：overflow=visible 不裁剪", !/data-fgui-name="oldEllipse"[^>]*overflow:hidden/.test(flat(rfHtml)));
+
+// ===== 阶段 I（P1 批次）：R10-R15 =====
+const p1Scene = buildScene(getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/P1Fix.xml")), { pkg: fxPkg(), root: path.resolve("tests/fixtures/workspace") });
+const p1Html = renderHtml(p1Scene, { pkg: fxPkg(), toAssetUrl: (f) => f });
+
+// R10：corner 顺序 tl,tr,bl,br（与 CSS 顺序不同，用长属性逐一断言）
+check("R10：corner 四值圆角 tl=2 tr=4 bl=6 br=8", p1Html.includes("border-top-left-radius:2px") && p1Html.includes("border-top-right-radius:4px") && p1Html.includes("border-bottom-left-radius:6px") && p1Html.includes("border-bottom-right-radius:8px"));
+check("R10：rect 描边 lineSize/lineColor", /data-fgui-name="stroked"[^>]*border:2px solid rgba\(102,102,102,1\)/.test(flat(p1Html)));
+check("R10：ellipse 描边 + 圆角并存", /data-fgui-name="ellipseStroke"[^>]*border-radius:50%/.test(flat(p1Html)) && /data-fgui-name="ellipseStroke"[^>]*border:2px/.test(flat(p1Html)));
+// R14：fillMethod
+check("R14：fillMethod=hz 左起 50% 裁剪", /data-fgui-name="halfImg"[^>]*clip-path:inset\(0 50% 0 0\)/.test(flat(p1Html)));
+check("R14：fillMethod=radial360 逆时针 25% conic mask", p1Html.includes("from 180deg") && p1Html.includes("transparent 0deg 270deg"));
+// R13：模板与 UBB
+check("R13：模板 default 替换与转义", p1Html.includes("hi world {} {esc}"));
+check("R13：UBB 简单标签与颜色", p1Html.includes("<b>bold</b>") && p1Html.includes('<span style="color:#FF3300">red</span>') && p1Html.includes('<span style="font-size:16px">big</span>'));
+check("R13：UBB img 包内引用渲染为图片", /<img src="[^"]*pic\.png"/.test(p1Html));
+check("R13：UBB url 降级为 data-href 下划线 span", p1Html.includes('data-href="event:xx"'));
+// R12：loader url 指向组件展开
+check("R12：loader 组件分支展开子场景（overflowChild）", p1Html.includes('data-fgui-name="overflowChild"') && /data-fgui-name="compLoader"[^>]*overflow:hidden/.test(flat(p1Html)));
+// R15：homePage 规则
+check("R15：homePage=specific 取指定页（page2 可见 / page0 隐藏）", !/data-fgui-name="page2Visible"[^>]*visibility:hidden/.test(flat(p1Html)) && /data-fgui-name="page0Hidden"[^>]*visibility:hidden/.test(flat(p1Html)));
+check("R15：gearColor 首页覆盖（homePage 驱动）", gcHtml.includes("color:#000000") && !gcHtml.includes("color:#ffffff"));
 
 if (failed > 0) {
   console.error(`检查失败 ${failed} 项`);

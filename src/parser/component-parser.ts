@@ -41,6 +41,8 @@ export interface ParsedNode {
   extensionProps?: Record<string, Record<string, string>>;
   /** list 节点的 item 子元素数量 */
   itemCount?: number;
+  /** list 节点 item 子元素的原始属性（title/icon 等，逐项下发用） */
+  items?: Record<string, string>[];
   /** list 节点按 defaultItem 展开的 item 场景副本（由 buildScene 填充，各项携带自身包） */
   listItems?: { index: number; scene: ParsedComponent; pkg: FairyPackage }[];
   /** list 单个 item 的尺寸（渲染 wrapper 需要：子节点 absolute 不贡献尺寸） */
@@ -85,7 +87,13 @@ function tagOf(item: OrderItem): string {
 }
 
 function attrsOf(item: OrderItem): Record<string, string> {
-  return (item[":@"] as Record<string, string> | undefined) ?? {};
+  const a = (item[":@"] as Record<string, string> | undefined) ?? {};
+  // 数字字符引用解码（fast-xml-parser 不解码 &#xA; 等；命名实体已由其处理）
+  for (const k of Object.keys(a)) {
+    a[k] = a[k].replace(/&#x([0-9a-fA-F]+);/g, (_m, h: string) => String.fromCodePoint(parseInt(h, 16)))
+      .replace(/&#(\d+);/g, (_m, d: string) => String.fromCodePoint(parseInt(d, 10)));
+  }
+  return a;
 }
 
 function childrenOf(item: OrderItem, tag: string): OrderItem[] {
@@ -107,7 +115,7 @@ function parsePair(s: string | undefined): [number, number] | undefined {
   return [parts[0] ?? 0, parts[1] ?? 0];
 }
 
-const KNOWN_TYPES = new Set(["image", "text", "graph", "component", "list", "loader"]);
+const KNOWN_TYPES = new Set(["image", "text", "richtext", "graph", "component", "list", "loader"]);
 const GEAR_KINDS: { tag: string; kind: Gear["kind"] }[] = [
   { tag: "gearDisplay", kind: "display" },
   { tag: "gearXY", kind: "xy" },
@@ -155,10 +163,21 @@ export function parseComponent(xmlFile: string): ParsedComponent {
 
   const controllers: Controller[] = findAll(compChildren, "controller").map((c) => {
     const a = attrsOf(c);
-    const pairs = String(a.pages ?? "").split(",").filter(Boolean);
-    // pages 是 id,name 交替：偶数位为页 id
-    const pageIds = pairs.filter((_, i) => i % 2 === 0);
-    return { name: a.name, pageIds, selected: a.selected ?? pageIds[0] ?? "" };
+    // pages 是 id,name 交替（逗号分隔，name 可为空，如 "0,,1,"）。
+    // 修复：不能 filter(Boolean) 去空串（会破坏交替关系，致 "0,,1,,2," 解析成 [0,2]），
+    // 应先取偶数位再去除空 id（尾逗号产生的空尾项自然落在奇数位或为空 id）
+    const pageIds = String(a.pages ?? "")
+      .split(",")
+      .filter((_, i) => i % 2 === 0)
+      .filter((id) => id !== "");
+    // R15 初始页规则（对齐 OpenFairy InitialPage）：homePageType=specific 时取 homePage 页，缺省第一页；
+    // selected 是编辑器残留选中态，不作为初始页依据
+    let selected = pageIds[0] ?? "";
+    if ((a.homePageType ?? "").toLowerCase() === "specific" && a.homePage) {
+      const idx = pageIds.indexOf(a.homePage);
+      if (idx >= 0) selected = pageIds[idx];
+    }
+    return { name: a.name, pageIds, selected };
   });
 
   // displayList 下的子项顺序即 XML 原始顺序（混排的 image/text/graph/component ...）
@@ -181,8 +200,10 @@ export function parseComponent(xmlFile: string): ParsedComponent {
         extensionProps: parseExtensionProps(childrenOf(item, type)),
       };
       if (type === "list") {
-        // list 的 item 子元素数量（静态渲染时按 defaultItem 展开）
-        node.itemCount = childrenOf(item, type).filter((i2) => tagOf(i2) === "item").length;
+        // list 的 item 子元素（静态渲染时按 defaultItem 展开，逐项属性下发用）
+        const itemEls = childrenOf(item, type).filter((i2) => tagOf(i2) === "item");
+        node.itemCount = itemEls.length;
+        node.items = itemEls.map((i2) => attrsOf(i2));
       }
       if (!KNOWN_TYPES.has(type)) {
         node.unsupported = `节点类型 ${type} 未支持`;
