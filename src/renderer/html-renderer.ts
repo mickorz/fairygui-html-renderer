@@ -1,292 +1,79 @@
 import path from "node:path";
-import type { ParsedComponent, ParsedNode, Gear } from "../parser/component-parser.js";
-import type { FairyPackage, ImageResource } from "../parser/package-parser.js";
+import type { ParsedComponent, ParsedNode } from "../parser/component-parser.js";
 import { selectorScript } from "../selection/component-selector.js";
+import { resolveGear } from "./nodes/gear.js";
+import { renderImageNode } from "./nodes/image-node.js";
+import { renderTextNode } from "./nodes/text-node.js";
+import { renderGraphNode } from "./nodes/graph-node.js";
+import { renderComponentNode } from "./nodes/component-node.js";
+import { renderListNode } from "./nodes/list-node.js";
+import { renderLoaderNode } from "./nodes/loader-node.js";
+import type { NodeRenderer, RenderContext, UnsupportedItem } from "./nodes/types.js";
+import { baseStyle, dataAttrs, esc, tintFilterDef } from "./nodes/utils.js";
 
-// 场景树 -> 静态 HTML 渲染器
-// P1：嵌套组件递归、九宫格 border-image、color 染色 SVG filter、gearXY/gearSize 默认页取值
+// 场景树 -> 静态 HTML 渲染器（入口）
+// 每种 FairyGUI 节点类型的映射规则在 nodes/<类型>-node.ts，本文件只做：
+//   gear 解析（resolveGear）-> 按类型分发到对应节点渲染文件 -> 整页编排（SVG defs / 未支持清单 / 选择器）
 
-export interface RenderContext {
-  pkg: FairyPackage;
-  /** 把资源绝对路径转换为产物 HTML 中的 URL */
-  toAssetUrl: (absFile: string) => string;
-}
-
-export interface UnsupportedItem {
-  nodeId: string;
-  reason: string;
-}
-
-interface Geo {
-  xy: [number, number];
-  size?: [number, number];
-}
-
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-}
-
-/** FairyGUI 颜色 #AARRGGBB 或 #RRGGBB -> CSS color */
-function toCssColor(s: string | undefined, fallback: string): string {
-  if (!s || s[0] !== "#") return fallback;
-  const hex = s.slice(1);
-  if (hex.length === 8) {
-    const a = parseInt(hex.slice(0, 2), 16) / 255;
-    const r = parseInt(hex.slice(2, 4), 16);
-    const g = parseInt(hex.slice(4, 6), 16);
-    const b = parseInt(hex.slice(6, 8), 16);
-    return `rgba(${r},${g},${b},${a})`;
-  }
-  if (hex.length === 6) return `#${hex}`;
-  return fallback;
-}
-
-/**
- * gear 默认页取值：selected 页在 pages 中且有值（非 "-"）时用页值，否则用 default。
- * 返回 null 表示 gear 对几何无影响。
- */
-function applyGear(gear: Gear, comp: ParsedComponent, geo: Geo): void {
-  const ctrl = comp.controllers.find((c) => c.name === gear.controller);
-  if (!ctrl) return;
-  // 在 gear 自己的 pages 中找当前选中页（gear.pages 与 controller.pageIds 布局可能不同）
-  const idx = gear.pages.indexOf(ctrl.selected);
-  let value = gear.default;
-  if (idx >= 0 && gear.values && gear.values[idx] && gear.values[idx] !== "-") {
-    value = gear.values[idx];
-  }
-  if (!value || value === "-") return;
-  const pair = value.split(",").map(Number);
-  if (gear.kind === "xy") geo.xy = [pair[0] ?? geo.xy[0], pair[1] ?? geo.xy[1]];
-  else if (gear.kind === "size" && pair.length === 2 && !Number.isNaN(pair[0])) geo.size = [pair[0], pair[1]];
-}
-
-/** 计算 gearDisplay 可见性与 gearXY/gearSize/gearColor 默认页取值 */
-function resolveGear(node: ParsedNode, comp: ParsedComponent): { hidden: boolean; geo: Geo; colorOverride?: string } {
-  const geo: Geo = { xy: node.xy, size: node.size };
-  let hidden = false;
-  let colorOverride: string | undefined;
-  for (const gear of node.gears) {
-    const ctrl = comp.controllers.find((c) => c.name === gear.controller);
-    if (gear.kind === "display") {
-      if (ctrl && !gear.pages.includes(ctrl.selected)) hidden = true;
-    } else if (gear.kind === "color") {
-      // 页值格式 "color,stroke"；取 color 段。有实值时覆盖节点颜色
-      const value = pickGearValue(gear, ctrl);
-      if (value) colorOverride = value.split(",")[0] || undefined;
-    } else {
-      applyGear(gear, comp, geo);
-    }
-  }
-  return { hidden, geo, colorOverride };
-}
-
-/** 取 gear 当前选中页的值：在 gear 自己的 pages 中找选中页，"-" 或无匹配用 default；无实质值返回 null */
-function pickGearValue(gear: Gear, ctrl: { pageIds: string[]; selected: string } | undefined): string | null {
-  if (!ctrl) return null;
-  const idx = gear.pages.indexOf(ctrl.selected);
-  let value = gear.default;
-  if (idx >= 0 && gear.values && gear.values[idx] && gear.values[idx] !== "-") value = gear.values[idx];
-  if (!value || value === "-") return null;
-  return value;
-}
-
-function baseStyle(geo: Geo, node: ParsedNode): string {
-  const parts = [`left:${geo.xy[0]}px`, `top:${geo.xy[1]}px`];
-  if (geo.size) parts.push(`width:${geo.size[0]}px`, `height:${geo.size[1]}px`);
-  const t: string[] = [];
-  if (node.attrs.rotation) t.push(`rotate(${node.attrs.rotation}deg)`);
-  const flip = node.attrs.flip;
-  if (flip === "hz") t.push("scaleX(-1)");
-  else if (flip === "vt") t.push("scaleY(-1)");
-  else if (flip === "both") t.push("scale(-1,-1)");
-  if (t.length) parts.push(`transform:${t.join(" ")}`);
-  if (node.attrs.alpha !== undefined) parts.push(`opacity:${node.attrs.alpha}`);
-  return parts.join(";");
-}
-
-function dataAttrs(node: ParsedNode, file: string): string {
-  const src = file.split(path.sep).join("/");
-  // instancePath / stableKey 由 buildScene 构建时填充（与 Scene Tree JSON 共用同一份数据）
-  return `data-fgui-id="${esc(node.id)}" data-fgui-name="${esc(node.name)}" data-fgui-src="${esc(src)}" data-fgui-type="${esc(node.type)}" data-fgui-path="${esc(node.instancePath ?? "")}" data-fgui-key="${esc(node.stableKey ?? "")}"`;
-}
-
-/** 收集 image 染色需要的 SVG filter 定义（乘法染色） */
-function tintFilterDef(color: string): string {
-  const hex = color.slice(1).padStart(6, "0").slice(-6);
-  const r = (parseInt(hex.slice(0, 2), 16) / 255).toFixed(3);
-  const g = (parseInt(hex.slice(2, 4), 16) / 255).toFixed(3);
-  const b = (parseInt(hex.slice(4, 6), 16) / 255).toFixed(3);
-  return `<filter id="tint-${hex}"><feColorMatrix type="matrix" values="${r} 0 0 0 0 0 ${g} 0 0 0 0 0 ${b} 0 0 0 0 0 1 0"/></filter>`;
-}
-
-/** 九宫格样式：scale9grid "x,y,w,h" -> border-image（slice 四边换算） */
-function nineSliceStyle(res: ImageResource, ctx: RenderContext): string | null {
-  if (!res.scale9grid || !res.width || !res.height) return null;
-  const [x, y, w, h] = res.scale9grid.split(",").map(Number);
-  // 9grid 区域可能超出小图边界（如 2px 分隔线），clamp 到 0 避免 CSS slice 无效
-  const right = Math.max(0, res.width - x - w);
-  const bottom = Math.max(0, res.height - y - h);
-  const repeat = res.scale === "tile" ? "repeat" : "stretch";
-  return [
-    `border-image-source:url("${ctx.toAssetUrl(res.file)}")`,
-    `border-image-slice:${y} ${right} ${bottom} ${x}`,
-    `border-image-width:${y}px ${right}px ${bottom}px ${x}px`,
-    `border-image-repeat:${repeat}`,
-  ].join(";");
-}
-
-function renderNode(
-  node: ParsedNode,
-  comp: ParsedComponent,
-  ctx: RenderContext,
-  stack: string[],
-  unsupported: UnsupportedItem[],
-  tints: Set<string>,
-): string {
-  const { hidden, geo, colorOverride } = resolveGear(node, comp);
-  const gearStyle = hidden ? "visibility:hidden;" : "";
-  const attrs = dataAttrs(node, comp.file);
-
-  const tintStyle = (attr: string | undefined): string => {
-    if (!attr || !attr.startsWith("#")) return "";
-    const hex = attr.slice(1).padStart(6, "0").slice(-6);
-    tints.add(hex);
-    return `filter:url(#tint-${hex});`;
-  };
-
-  // 未支持类型：虚线占位 + 上报
-  if (node.unsupported) {
-    unsupported.push({ nodeId: node.id, reason: node.unsupported });
-    return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f;background:rgba(255,77,79,.08)"></div>`;
-  }
-
-  switch (node.type) {
-    case "component": {
-      if (!node.childComp) {
-        unsupported.push({ nodeId: node.id, reason: "component 子场景未构建" });
-        return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f"></div>`;
-      }
-      const child = node.childComp.comp;
-      // 尺寸：节点未指定时用子组件自身设计尺寸
-      if (!geo.size) geo.size = child.size;
-      // 嵌套容器：子节点 absolute 定位相对本容器（path/key 已由 buildScene 填充）
-      const inner = renderChildren(child, ctx, [...stack, node.childComp.file], unsupported, tints);
-      return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)}">${inner}</div>`;
-    }
-    case "image": {
-      const res = ctx.pkg.byId(node.src ?? "");
-      if (!res || res.kind !== "image") {
-        unsupported.push({ nodeId: node.id, reason: `image 引用资源 ${node.src ?? "?"} 未找到` });
-        return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f"></div>`;
-      }
-      const nine = nineSliceStyle(res, ctx);
-      // E1 gearColor 默认页覆盖 > 属性染色
-      const tintSrc = colorOverride ?? node.attrs.color;
-      const tint = tintStyle(tintSrc);
-      if (tintSrc && !tint) unsupported.push({ nodeId: node.id, reason: `image 染色 color=${tintSrc} 无法解析` });
-      const filter = [tint, node.attrs.grayed === "true" ? "grayscale(1)" : ""].filter(Boolean).join(" ");
-      if (nine) {
-        // 九宫格：div + border-image（拉伸不变形）
-        return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};${nine};${filter ? `filter:${filter};` : ""}"></div>`;
-      }
-      const style = [`${gearStyle}${baseStyle(geo, node)}`];
-      if (!geo.size && res.width) style.push(`width:${res.width}px`, `height:${res.height}px`);
-      if (filter) style.push(`filter:${filter}`);
-      return `<img ${attrs} src="${esc(ctx.toAssetUrl(res.file))}" class="fgui-node" style="${style.join(";")}" alt="">`;
-    }
-    case "loader": {
-      // loader 无 url 时由运行时填充：静态渲染给灰底占位，不计入未支持清单
-      const style = [`${gearStyle}${baseStyle(geo, node)}`];
-      style.push("background:rgba(255,255,255,.08);border:1px solid #666");
-      style.push("display:flex;align-items:center;justify-content:center;color:#999;font-size:11px");
-      if (node.attrs.url) unsupported.push({ nodeId: node.id, reason: `loader url=${node.attrs.url} 渲染未实现` });
-      return `<div ${attrs} class="fgui-node" style="${style.join(";")}">Loader</div>`;
-    }
-    case "list": {
-      // 静态渲染：按 defaultItem 展开的 item 实例，flex 布局近似
-      if (!node.listItems?.length) {
-        unsupported.push({ nodeId: node.id, reason: "list 无可展开 item（缺 root 或 defaultItem 未解析）" });
-        return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f;background:rgba(255,77,79,.08)"></div>`;
-      }
-      const layout = node.attrs.layout ?? "";
-      const colGap = node.attrs.colGap ? `${node.attrs.colGap}px` : "0";
-      const lineGap = node.attrs.lineGap ? `${node.attrs.lineGap}px` : "0";
-      // SDK 词表：column/row/flow_hz/flow_vt/pagination；flow_hz 用 grid 按 lineItemCount 换列
-      const lineItems = node.attrs.lineItemCount ? Number(node.attrs.lineItemCount) : 0;
-      const isGrid = layout === "flow_hz" || layout === "pagination";
-      const itemSize = node.defaultItemSize;
-      const items = node.listItems
-        .map((item) => {
-          const inner = renderChildren(item.scene, { pkg: item.pkg, toAssetUrl: ctx.toAssetUrl }, [...stack, `${node.stableKey}#${item.index}`], unsupported, tints);
-          // wrapper 需显式尺寸：子节点全部 absolute 脱离文档流，否则 grid/flex 内不可见
-          const sizeStyle = itemSize ? `width:${itemSize.w}px;height:${itemSize.h}px;` : "";
-          return `<div class="fgui-node" style="position:relative;flex:none;${sizeStyle}">${inner}</div>`;
-        })
-        .join("");
-      let layoutStyle: string;
-      if (isGrid && lineItems > 0) {
-        layoutStyle = `display:grid;grid-template-columns:repeat(${lineItems},max-content);gap:${lineGap} ${colGap};`;
-      } else if (layout === "row") {
-        layoutStyle = `display:flex;flex-direction:row;gap:0 ${colGap};`;
-      } else {
-        layoutStyle = `display:flex;flex-direction:column;gap:${lineGap} 0;`;
-      }
-      return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};${layoutStyle}overflow:hidden">${items}</div>`;
-    }
-    case "text": {
-      const style = [`${gearStyle}${baseStyle(geo, node)}`];
-      const autoSize = node.attrs.autoSize ?? "none";
-      if (autoSize === "height" && geo.size) style.push("height:auto"); // 高度随内容自适应
-      style.push(`font-size:${node.attrs.fontSize ?? 12}px`);
-      // E1 gearColor 默认页覆盖 > 属性色
-      style.push(`color:${colorOverride ?? toCssColor(node.attrs.color, "#000000")}`);
-      // E2 描边（近似：FairyGUI 描边向外，CSS text-stroke 居中，视觉略细）
-      if (node.attrs.strokeColor) {
-        const size = node.attrs.strokeSize ? Number(node.attrs.strokeSize) : 2;
-        style.push(`-webkit-text-stroke:${size}px ${toCssColor(node.attrs.strokeColor, "#000000")}`);
-      }
-      style.push("line-height:1.2;white-space:pre-wrap;overflow:hidden");
-      if (node.attrs.align) style.push(`text-align:${node.attrs.align}`);
-      if (node.attrs.valign) unsupported.push({ nodeId: node.id, reason: "text valign 未实现" });
-      return `<div ${attrs} class="fgui-node" style="${style.join(";")}">${esc(node.attrs.text ?? "")}</div>`;
-    }
-    case "graph": {
-      const style = [`${gearStyle}${baseStyle(geo, node)}`];
-      const gtype = node.attrs.type ?? "none";
-      if (gtype === "ellipse") style.push("border-radius:50%");
-      style.push(`background:${colorOverride ?? toCssColor(node.attrs.fillColor, "transparent")}`);
-      if (node.attrs.lineSize !== undefined && node.attrs.lineSize !== "0") {
-        unsupported.push({ nodeId: node.id, reason: "graph 描边 lineSize 未实现" });
-      }
-      return `<div ${attrs} class="fgui-node" style="${style.join(";")}"></div>`;
-    }
-    default: {
-      unsupported.push({ nodeId: node.id, reason: `节点类型 ${node.type} 未支持` });
-      return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f;background:rgba(255,77,79,.08)"></div>`;
-    }
-  }
-}
-
-function renderChildren(
-  comp: ParsedComponent,
-  ctx: RenderContext,
-  stack: string[],
-  unsupported: UnsupportedItem[],
-  tints: Set<string>,
-): string {
-  return comp.nodes.map((n) => renderNode(n, comp, ctx, stack, unsupported, tints)).join("\n    ");
-}
+export type { RenderContext, UnsupportedItem } from "./nodes/types.js";
 
 export interface RenderOptions {
   /** 纯净模式：无信息栏/选择器脚本/内边距，专供截图对比与 MCP 截图 */
   bare?: boolean;
 }
 
+/** 节点类型 -> 渲染器注册表（新增类型：在 nodes/ 加文件并在此注册） */
+const RENDERERS: Record<string, NodeRenderer> = {
+  image: renderImageNode,
+  text: renderTextNode,
+  graph: renderGraphNode,
+  component: renderComponentNode,
+  list: renderListNode,
+  loader: renderLoaderNode,
+};
+
+/** 创建持有本次渲染累积状态（未支持清单/染色集合）的渲染闭包 */
+function createRenderChildren(unsupported: UnsupportedItem[], tints: Set<string>) {
+  function renderNode(
+    node: ParsedNode,
+    comp: ParsedComponent,
+    ctx: RenderContext,
+    stack: string[],
+    renderChildren: (comp: ParsedComponent, ctx: RenderContext, stack: string[]) => string,
+  ): string {
+    const { hidden, geo, colorOverride } = resolveGear(node, comp);
+    const gearStyle = hidden ? "visibility:hidden;" : "";
+
+    if (node.unsupported || !RENDERERS[node.type]) {
+      const reason = node.unsupported ?? `节点类型 ${node.type} 未支持`;
+      unsupported.push({ nodeId: node.id, reason });
+      const attrs = dataAttrs(node, comp.file);
+      return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)};border:1px dashed #ff4d4f;background:rgba(255,77,79,.08)"></div>`;
+    }
+    return RENDERERS[node.type]({ node, comp, ctx, geo, gearStyle, colorOverride, stack, unsupported, tints, renderChildren });
+  }
+  function renderChildren(
+    comp: ParsedComponent,
+    ctx: RenderContext,
+    stack: string[],
+  ): string {
+    return comp.nodes
+      .map((n) => renderNode(n, comp, ctx, stack, renderChildren))
+      .join("\n    ");
+  }
+  return renderChildren;
+}
+
 /** 渲染组件为完整静态 HTML（先经 scene-builder 构建子组件树） */
-export function renderHtml(comp: ParsedComponent, ctx: RenderContext, options: RenderOptions = {}): string {
+export function renderHtml(
+  comp: ParsedComponent,
+  ctx: RenderContext,
+  options: { bare?: boolean } = {},
+): string {
   const unsupported: UnsupportedItem[] = [];
   const tints = new Set<string>();
-  const inner = renderChildren(comp, ctx, [path.normalize(comp.file)], unsupported, tints);
+  const renderChildrenFn = createRenderChildren(unsupported, tints);
+  const inner = renderChildrenFn(comp, ctx, [path.normalize(comp.file)]);
 
   const bare = options.bare === true;
   const listHtml = bare

@@ -1,0 +1,79 @@
+import path from "node:path";
+import type { ImageResource } from "../../parser/package-parser.js";
+import type { ParsedNode } from "../../parser/component-parser.js";
+import type { Geo, RenderContext } from "./types.js";
+
+// 渲染共享工具：转义 / 颜色 / 通用样式 / data 属性 / 九宫格 / 染色
+
+export function esc(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
+/** FairyGUI 颜色 #AARRGGBB 或 #RRGGBB -> CSS color */
+export function toCssColor(s: string | undefined, fallback: string): string {
+  if (!s || s[0] !== "#") return fallback;
+  const hex = s.slice(1);
+  if (hex.length === 8) {
+    const a = parseInt(hex.slice(0, 2), 16) / 255;
+    const r = parseInt(hex.slice(2, 4), 16);
+    const g = parseInt(hex.slice(4, 6), 16);
+    const b = parseInt(hex.slice(6, 8), 16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+  if (hex.length === 6) return `#${hex}`;
+  return fallback;
+}
+
+/** 通用几何/视觉样式：位置尺寸 + 旋转/翻转 + 透明度 */
+export function baseStyle(geo: Geo, node: ParsedNode): string {
+  const parts = [`left:${geo.xy[0]}px`, `top:${geo.xy[1]}px`];
+  if (geo.size) parts.push(`width:${geo.size[0]}px`, `height:${geo.size[1]}px`);
+  const t: string[] = [];
+  if (node.attrs.rotation) t.push(`rotate(${node.attrs.rotation}deg)`);
+  const flip = node.attrs.flip;
+  if (flip === "hz") t.push("scaleX(-1)");
+  else if (flip === "vt") t.push("scaleY(-1)");
+  else if (flip === "both") t.push("scale(-1,-1)");
+  if (t.length) parts.push(`transform:${t.join(" ")}`);
+  if (node.attrs.alpha !== undefined) parts.push(`opacity:${node.attrs.alpha}`);
+  return parts.join(";");
+}
+
+/** 节点溯源 data 属性（instancePath/stableKey 由 buildScene 构建时填充） */
+export function dataAttrs(node: ParsedNode, file: string): string {
+  const src = file.split(path.sep).join("/");
+  return `data-fgui-id="${esc(node.id)}" data-fgui-name="${esc(node.name)}" data-fgui-src="${esc(src)}" data-fgui-type="${esc(node.type)}" data-fgui-path="${esc(node.instancePath ?? "")}" data-fgui-key="${esc(node.stableKey ?? "")}"`;
+}
+
+/** image 染色 filter 片段（登记到 tints 集合，renderHtml 末尾生成 SVG defs） */
+export function tintStyle(color: string | undefined, tints: Set<string>): string {
+  if (!color || !color.startsWith("#")) return "";
+  const hex = color.slice(1).padStart(6, "0").slice(-6);
+  tints.add(hex);
+  return `filter:url(#tint-${hex});`;
+}
+
+/** 染色 SVG filter 定义（feColorMatrix 对角矩阵 = 乘法染色） */
+export function tintFilterDef(color: string): string {
+  const hex = color.slice(1).padStart(6, "0").slice(-6);
+  const r = (parseInt(hex.slice(0, 2), 16) / 255).toFixed(3);
+  const g = (parseInt(hex.slice(2, 4), 16) / 255).toFixed(3);
+  const b = (parseInt(hex.slice(4, 6), 16) / 255).toFixed(3);
+  return `<filter id="tint-${hex}"><feColorMatrix type="matrix" values="${r} 0 0 0 0 0 ${g} 0 0 0 0 0 ${b} 0 0 0 0 0 1 0"/></filter>`;
+}
+
+/** 九宫格样式：scale9grid "x,y,w,h" -> border-image（slice 四边换算） */
+export function nineSliceStyle(res: ImageResource, ctx: RenderContext): string | null {
+  if (!res.scale9grid || !res.width || !res.height) return null;
+  const [x, y, w, h] = res.scale9grid.split(",").map(Number);
+  // 9grid 区域可能超出小图边界（如 2px 分隔线），clamp 到 0 避免 CSS slice 无效
+  const right = Math.max(0, res.width - x - w);
+  const bottom = Math.max(0, res.height - y - h);
+  const repeat = res.scale === "tile" ? "repeat" : "stretch";
+  return [
+    `border-image-source:url("${ctx.toAssetUrl(res.file)}")`,
+    `border-image-slice:${y} ${right} ${bottom} ${x}`,
+    `border-image-width:${y}px ${right}px ${bottom}px ${x}px`,
+    `border-image-repeat:${repeat}`,
+  ].join(";");
+}
