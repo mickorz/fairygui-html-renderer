@@ -1,3 +1,27 @@
 [submodule "thirdparties/OpenFairy-SDK-uGUI"]
 	path = thirdparties/OpenFairy-SDK-uGUI
 	url = https://github.com/OpenFairyGUI/OpenFairy-SDK-uGUI
+[submodule "thirdparties/grapesjs"]
+	path = thirdparties/grapesjs
+	url = https://github.com/GrapesJS/grapesjs.git
+	branch = v0.23.9
+[submodule "thirdparties/react"]
+	path = thirdparties/react
+	url = https://github.com/facebook/react.git
+	branch = v19.3.1
+[submodule "thirdparties/vite"]
+	path = thirdparties/vite
+	url = https://github.com/vitejs/vite.git
+	branch = v8.3.5
+[submodule "thirdparties/shadcn-ui"]
+	path = thirdparties/shadcn-ui
+	url = https://github.com/shadcn-ui/ui.git
+	branch = shadcn@4.9.0
+[submodule "thirdparties/lucide"]
+	path = thirdparties/lucide
+	url = https://github.com/lucide-icons/lucide.git
+	branch = v0.265.0
+[submodule "thirdparties/playwright"]
+	path = thirdparties/playwright
+	url = https://github.com/microsoft/playwright.git
+	branch = v1.64.1
