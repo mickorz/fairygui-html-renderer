@@ -1,6 +1,7 @@
 import path from "node:path";
 import { loadPackage, resourceIdOf, type FairyPackage, type Resource } from "../parser/package-parser.js";
 import { parseComponent, type ParsedComponent, type ParsedNode } from "../parser/component-parser.js";
+import { parseFnt, type BitmapGlyph, type BitmapFontResolved } from "../parser/fnt.js";
 import { buildGlobalIndex, parseUiUrl, type GlobalIndex } from "./global-index.js";
 import { pickGearValue } from "../renderer/gear.js";
 
@@ -83,6 +84,10 @@ export function buildScene(comp: ParsedComponent, opts: SceneOptions, ctx?: Buil
     if (copy.type === "list") {
       expandList(copy, opts, { stack: fullStack, parentPath, keyPrefix });
       return copy;
+    }
+    // BMFont 位图字体（L1）：ui:// font 构建期解析为字符 -> 图文件表（renderer 保持纯函数，同 loaderRes 范式）
+    if ((copy.type === "text" || copy.type === "richtext" || copy.type === "inputtext") && copy.attrs.font?.startsWith("ui://") && opts.root) {
+      resolveBitmapFont(copy, opts, opts.root);
     }
     // R04/R12：loader url 解析：包内 image 直接渲染；包内 component 展开为子场景（复用 component 范式）
     // gearIcon 默认页取值优先于 attrs.url（FairyGUI gearIcon 语义）
@@ -248,6 +253,57 @@ function expandList(copy: ParsedNode, opts: SceneOptions, ctx: BuildContext): vo
     if (a.icon !== undefined) applyIcon(scene, a.icon, opts, index, ctx.stack);
     copy.listItems.push({ index: i, pkg: itemPkg, scene });
   }
+}
+
+/**
+ * BMFont 位图字体构建期解析（L1）：ui:// font -> 字符表（字符 -> 图文件/图集矩形）。
+ * 两种变体（实测 CC-Default）：
+ *   FairyUI 变体（img=资源id）逐字独立图片；图集变体（x/y/width/height）图集矩形，
+ *   图集优先用 font 资源的 texture 属性（package.xml），page file 实测可能是占位不存在的文件名。
+ * 解析失败/无字形时静默返回（渲染器按普通文本回退并上报）。
+ */
+function resolveBitmapFont(copy: ParsedNode, opts: SceneOptions, root: string): void {
+  const hit = parseUiUrl(copy.attrs.font ?? "", globalIndexOf(root));
+  const res = hit?.resource;
+  if (!res || res.kind !== "other" || res.type !== "font") return;
+  let fnt;
+  try {
+    fnt = parseFnt(res.file);
+  } catch {
+    return;
+  }
+  if (!fnt.glyphs.length) return;
+  const pkg = loadPackage(hit.pkgDir);
+  const glyphs = new Map<number, BitmapGlyph>();
+  let lineHeight = fnt.lineHeight;
+  for (const g of fnt.glyphs) {
+    if (g.img) {
+      // FairyUI 变体：每字符独立图片资源
+      const img = pkg.byId(g.img);
+      if (!img || img.kind !== "image") continue;
+      const w = img.width ?? 0;
+      const h = img.height ?? 0;
+      glyphs.set(g.id, { file: img.file, w, h, xoffset: g.xoffset ?? 0, yoffset: g.yoffset ?? 0, xadvance: g.xadvance ?? w });
+      lineHeight = Math.max(lineHeight, h);
+    } else {
+      // 图集变体：texture 属性优先，page file 相对 fnt 目录兑底
+      const atlasRes = res.texture ? pkg.byId(res.texture) : undefined;
+      const atlasFile = atlasRes && atlasRes.kind === "image" ? atlasRes.file : path.join(path.dirname(res.file), fnt.pages[g.page ?? 0] ?? "");
+      glyphs.set(g.id, {
+        file: atlasFile,
+        w: g.width ?? 0,
+        h: g.height ?? 0,
+        xoffset: g.xoffset ?? 0,
+        yoffset: g.yoffset ?? 0,
+        xadvance: g.xadvance ?? g.width ?? 0,
+        atlasX: g.x,
+        atlasY: g.y,
+      });
+    }
+  }
+  if (!glyphs.size) return;
+  copy.bitmapFont = { glyphs, lineHeight: lineHeight || 0 };
+  // 位图字体字号固定（FairyGUI BMFont 忽略 fontSize），渲染器逐字摆位不用 font-size
 }
 
 /** item icon 下发（R11）：写入场景内 name="icon" 的 loader 节点并解析为图片/组件内容 */

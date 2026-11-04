@@ -80,15 +80,10 @@ export function renderTextNode(input: NodeRenderInput): string {
   if (autoSize === "both") style.push("width:auto", "height:auto"); // R23：Both 不换行随内容（见 white-space）
   const fontSize = Number(fontSizeOverride ?? node.attrs.fontSize ?? 12);
   style.push(`font-size:${fontSize}px`);
-  // 字体：非 ui:// 字体名透传（微软雅黑/Comic Sans MS 等）；ui:// 位图字体（BMFont .fnt）上报未支持；
-  // 缺省 Arial 对齐 FairyGUI 默认字体（中文经浏览器回退，与 Unity Arial 回退行为一致）
+  // 字体：非 ui:// 字体名透传（微软雅黑/Comic Sans MS 等）；ui:// 位图字体走 bitmapFont 逐字摆位（解析失败时上报）
   const fontAttr = node.attrs.font;
-  if (fontAttr) {
-    if (fontAttr.startsWith("ui://")) {
-      unsupported.push({ nodeId: node.id, reason: `font=${fontAttr} 位图字体（BMFont）未实现` });
-    } else {
-      style.push(`font-family:${fontAttr}, Arial, sans-serif`);
-    }
+  if (fontAttr && !fontAttr.startsWith("ui://")) {
+    style.push(`font-family:${fontAttr}, Arial, sans-serif`);
   }
   // 行高：对齐 FairyGUI 排版公式（缺省 leading=3）
   const leading = Number(node.attrs.leading ?? 3);
@@ -130,7 +125,49 @@ export function renderTextNode(input: NodeRenderInput): string {
   if (isInput && node.attrs.password === "true" && attrText) {
     text = "\u2022".repeat(attrText.length);
   }
+  // BMFont 位图字体（L1）：逐字摆位替换文本内容（字号固定忽略 fontSize；用转义前原文，不用 UBB HTML）
+  if (node.bitmapFont) {
+    const glyphHtml = renderBitmapText(node.bitmapFont, text, node.id, unsupported, ctx);
+    if (glyphHtml !== null) {
+      return `<div ${attrs} class="fgui-node" style="${style.filter((s) => !/^font-size:|^line-height:/.test(s)).join(";")}">${glyphHtml}</div>`;
+    }
+    // 字符表空/全缺失：回退普通文本（renderBitmapText 已 push 原因）
+  } else if (fontAttr?.startsWith("ui://")) {
+    unsupported.push({ nodeId: node.id, reason: `font=${fontAttr} 位图字体解析失败（非 font 资源或无字形）` });
+  }
   text = esc(text);
   if (node.attrs.ubb === "true" || usingPrompt) text = renderUbb(text, ctx);
   return `<div ${attrs} class="fgui-node" style="${style.join(";")}">${text}</div>`;
+}
+
+/** BMFont 逐字摆位：字符 -> 图集矩形（background-position）或独立图片（img）；缺失字符跳过并上报 */
+function renderBitmapText(
+  font: import("../../parser/fnt.js").BitmapFontResolved,
+  text: string,
+  nodeId: string,
+  unsupported: { nodeId: string; reason: string }[],
+  ctx: RenderContext,
+): string | null {
+  const parts: string[] = [];
+  let missing = 0;
+  for (const ch of text) {
+    // UBB/模板已展开后的实体文本，逐字符摆位（含空格：xadvance 占位）
+    const code = ch.codePointAt(0) ?? 0;
+    const g = font.glyphs.get(code);
+    if (!g) {
+      if (ch.trim()) missing++;
+      continue;
+    }
+    const cell = `display:inline-block;width:${g.xadvance}px;height:${font.lineHeight || g.h}px;position:relative`;
+    const pos = `position:absolute;left:${g.xoffset}px;top:${g.yoffset}px;width:${g.w}px;height:${g.h}px`;
+    if (g.atlasX !== undefined) {
+      // 图集变体：矩形裁切（background-position 负偏移；单引号避免截断 style 属性）
+      parts.push(`<span style="${cell}"><span style="${pos};background:url('${ctx.toAssetUrl(g.file)}') -${g.atlasX}px -${g.atlasY}px"></span></span>`);
+    } else {
+      parts.push(`<span style="${cell}"><img src="${esc(ctx.toAssetUrl(g.file))}" style="${pos}" alt=""></span>`);
+    }
+  }
+  if (!parts.length) return null;
+  if (missing > 0) unsupported.push({ nodeId, reason: `BMFont 字体缺 ${missing} 个字符的字形，已跳过` });
+  return `<span style="display:inline-flex">${parts.join("")}</span>`;
 }

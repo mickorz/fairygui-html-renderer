@@ -78,11 +78,12 @@ const mainHtml = renderHtml(
   { pkg: basicsPkg, toAssetUrl: (f) => f },
 );
 check("系统字体名透传（微软雅黑）", mainHtml.includes("font-family:微软雅黑, Arial, sans-serif"));
-const mainUnsupported = renderHtml(
+const demoTextHtml = renderHtml(
   buildScene(getComponent(path.join(basicsDir, "Demo_Text.xml")), { pkg: basicsPkg, root: path.resolve("CC-Default") }),
   { pkg: basicsPkg, toAssetUrl: (f) => f },
 );
-check("BMFont 位图字体上报未支持（Demo_Text）", mainUnsupported.includes("位图字体（BMFont）未实现"));
+check("BMFont 位图字体逐字摆位渲染（Demo_Text）", (demoTextHtml.match(/display:inline-flex/g) ?? []).length >= 2 && demoTextHtml.includes("display:inline-block;width:"));
+check("BMFont 缺字上报（字符表外字符跳过）", !demoTextHtml.includes("位图字体解析失败") || demoTextHtml.includes("BMFont 字体缺"));
 
 // ===== A2：构建与缓存分离 =====
 const aComp = getComponent(path.resolve("tests/fixtures/workspace/assets/cycle/CycleA.xml"));
