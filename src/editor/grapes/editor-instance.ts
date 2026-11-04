@@ -1,6 +1,7 @@
 import grapesjs from "grapesjs";
 import type { Editor } from "grapesjs";
 import { DEFAULT_CANVAS, canvasFrameStyle } from "./canvas-config";
+import { bindEditorEvents } from "./use-editor";
 
 // GrapesJS 编辑器单例封装（Task 1 POC）
 // 边界：React 只负责本容器外围 UI，画布内部 DOM 全归 GrapesJS 管
@@ -65,6 +66,8 @@ export function createEditorInstance(container: HTMLElement): Editor {
   });
   // 调试句柄：控制台/验证脚本直接访问编辑器实例
   (window as unknown as { __editorInstance?: Editor }).__editorInstance = editor;
+  // React 桥（Task 4）：选中/更新/undo 事件转 React 快照（幂等）
+  bindEditorEvents(editor);
   return editor;
 }
 
