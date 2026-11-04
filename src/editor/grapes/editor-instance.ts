@@ -1,5 +1,6 @@
 import grapesjs from "grapesjs";
 import type { Editor } from "grapesjs";
+import { DEFAULT_CANVAS, canvasFrameStyle } from "./canvas-config";
 
 // GrapesJS 编辑器单例封装（Task 1 POC）
 // 边界：React 只负责本容器外围 UI，画布内部 DOM 全归 GrapesJS 管
@@ -7,12 +8,15 @@ let editor: Editor | null = null;
 
 export function createEditorInstance(container: HTMLElement): Editor {
   if (editor) return editor;
+  void DEFAULT_CANVAS; // 画布框架样式见 canvasFrameStyle()，常量供界面与导出侧使用
   editor = grapesjs.init({
     container,
     height: "100%",
     width: "auto",
     plugins: [],
     storageManager: false,
+    // 固定设计画布（Task 2）：框架样式走 frameStyle（覆盖 GrapesJS 默认 body 背景，防样本 CSS 干扰）
+    canvas: { frameStyle: canvasFrameStyle(DEFAULT_CANVAS) },
     // 保真关键：0.23 默认 avoidInlineStyle=true 会删除内联 style（Component.getAttrToHTML），
     // 样式转存 #id 规则且解析管道不回写，导致导出 HTML 丢样式。必须关闭。
     avoidInlineStyle: false,

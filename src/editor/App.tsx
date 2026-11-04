@@ -2,6 +2,7 @@
 // Task 1 起逐区填充：GrapesJS 容器挂 region-canvas，React 只控制画布外围
 import { useEffect, useRef } from "react";
 import { createEditorInstance } from "./grapes/editor-instance";
+import TopToolbar from "./components/TopToolbar";
 
 export default function App() {
   const canvasHostRef = useRef<HTMLElement>(null);
@@ -12,7 +13,9 @@ export default function App() {
 
   return (
     <div className="editor-layout">
-      <header className="region region-top">TopToolbar</header>
+      <header className="region region-top">
+        <TopToolbar />
+      </header>
       <aside className="region region-layers">LayerTree</aside>
       <main ref={canvasHostRef} className="region region-canvas" id="gjs-canvas-host" />
       <aside className="region region-props">PropertyPanel</aside>
