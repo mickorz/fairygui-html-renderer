@@ -1,0 +1,10 @@
+/* Sample F：道具详情弹窗（最终验收场景底稿，模拟 AI 产物） */
+body { margin: 0; background: #444; }
+#canvas { position: relative; width: 750px; height: 1334px; background: #808080; }
+#canvas .panel { position: absolute; left: 75px; top: 367px; width: 600px; height: 600px; background: #263244; border: 2px solid #4a90d9; border-radius: 16px; }
+#canvas .item-icon { position: absolute; left: 40px; top: 40px; width: 120px; height: 120px; }
+#canvas .item-name { position: absolute; left: 180px; top: 48px; width: 380px; height: 40px; font-size: 30px; color: #ffffff; }
+#canvas .item-quality { position: absolute; left: 180px; top: 100px; width: 200px; height: 32px; font-size: 22px; color: #c9a227; }
+#canvas .item-desc { position: absolute; left: 40px; top: 200px; width: 520px; height: 160px; font-size: 20px; color: #b8c4d4; line-height: 1.6; }
+#canvas .item-count { position: absolute; left: 40px; top: 420px; width: 300px; height: 32px; font-size: 22px; color: #8fd9a0; }
+#canvas .confirm-btn { position: absolute; left: 220px; top: 510px; width: 160px; height: 56px; background: #4a90d9; color: #ffffff; font-size: 24px; text-align: center; line-height: 56px; border-radius: 8px; }

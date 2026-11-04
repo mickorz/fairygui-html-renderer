@@ -1,0 +1,10 @@
+/* Sample A：简单游戏弹窗，全部 absolute 定位，外部 class 规则 */
+body { margin: 0; background: #444; }
+#canvas { position: relative; width: 750px; height: 1334px; background: #808080; }
+#canvas .mask { position: absolute; left: 0; top: 0; width: 750px; height: 1334px; background: rgba(0, 0, 0, 0.55); }
+#canvas .dialog { position: absolute; left: 95px; top: 307px; width: 560px; height: 720px; background: #3a2f1e; border: 2px solid #c9a227; border-radius: 12px; }
+#canvas .dialog-title { position: absolute; left: 0; top: 24px; width: 560px; height: 40px; font-size: 28px; color: #ffd666; text-align: center; }
+#canvas .dialog-body { position: absolute; left: 40px; top: 120px; width: 480px; height: 120px; font-size: 22px; color: #e8dcc8; line-height: 1.5; }
+#canvas .close-btn { position: absolute; left: 500px; top: 20px; width: 40px; height: 40px; font-size: 20px; color: #ff8866; text-align: center; }
+#canvas .confirm-btn { position: absolute; left: 110px; top: 600px; width: 160px; height: 56px; background: #c9a227; color: #2b1d0e; font-size: 24px; text-align: center; line-height: 56px; border-radius: 8px; }
+#canvas .cancel-btn { position: absolute; left: 290px; top: 600px; width: 160px; height: 56px; background: #555555; color: #dddddd; font-size: 24px; text-align: center; line-height: 56px; border-radius: 8px; }

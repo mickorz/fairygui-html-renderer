@@ -12,7 +12,8 @@
     "mcp": "tsx src/mcp/main.ts",
     "check:convert": "tsx tests/convert-check.ts",
     "editor": "vite src/editor",
-    "editor:build": "vite build src/editor"
+    "editor:build": "vite build src/editor",
+    "check:grapes": "tsx tests/grapes-fidelity.ts"
   },
   "dependencies": {
     "grapesjs": "^0.23.9",
