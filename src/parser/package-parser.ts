@@ -14,6 +14,8 @@ export interface ImageResource {
   kind: "image";
   id: string;
   name: string;
+  /** 包内相对目录（如 /images/） */
+  path: string;
   /** 物理文件路径（绝对） */
   file: string;
   width?: number;
@@ -28,6 +30,7 @@ export interface ComponentResource {
   kind: "component";
   id: string;
   name: string;
+  path: string;
   file: string;
   exported: boolean;
 }
@@ -38,6 +41,7 @@ export interface OtherResource {
   id: string;
   name: string;
   file: string;
+  path: string;
 }
 
 export type Resource = ImageResource | ComponentResource | OtherResource;
@@ -71,6 +75,7 @@ export function loadPackage(pkgDir: string): FairyPackage {
           kind: "image",
           id: e.id,
           name: e.name,
+          path: e.path ?? "/",
           file,
           width: e.width !== undefined ? Number(e.width) : undefined,
           height: e.height !== undefined ? Number(e.height) : undefined,
@@ -78,9 +83,9 @@ export function loadPackage(pkgDir: string): FairyPackage {
           scale: e.scale,
         });
       } else if (tag === "component") {
-        resources.push({ kind: "component", id: e.id, name: e.name, file, exported: e.exported === "true" });
+        resources.push({ kind: "component", id: e.id, name: e.name, path: e.path ?? "/", file, exported: e.exported === "true" });
       } else {
-        resources.push({ kind: "other", type: tag, id: e.id, name: e.name, file });
+        resources.push({ kind: "other", type: tag, id: e.id, name: e.name, path: e.path ?? "/", file });
       }
     }
   }

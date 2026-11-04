@@ -51,6 +51,18 @@ function text(res: http.ServerResponse, status: number, body: string, type = "te
   res.end(body);
 }
 
+function findPackageDir(componentFileDir: string, assetsRoot: string): string {
+  let dir = path.normalize(componentFileDir);
+  const stop = path.normalize(assetsRoot);
+  while (dir.startsWith(stop)) {
+    if (fs.existsSync(path.join(dir, "package.xml"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return componentFileDir;
+}
+
 export function createApp(opts: AppOptions): http.Server {
   const root = path.resolve(opts.rootDir);
   const assetsRoot = path.join(root, "assets");
@@ -112,7 +124,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, root: 
     if (!abs || !abs.endsWith(".xml") || !fs.existsSync(abs)) {
       return json(res, 404, { error: `组件不存在或路径越界: ${comp}` });
     }
-    const pkg = loadPackage(path.dirname(abs));
+    const pkg = loadPackage(findPackageDir(path.dirname(abs), assetsRoot));
     // 每请求重解析（fresh），保证修改 XML 后刷新即生效
     const scene = buildScene(getComponent(abs, { fresh: true }), { pkg, root });
     return json(res, 200, toSceneJson(scene, pkg, { relativize: (a) => path.relative(root, a).split(path.sep).join("/") }));
@@ -125,7 +137,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, root: 
     if (!abs || !abs.endsWith(".xml") || !fs.existsSync(abs)) {
       return text(res, 404, `组件不存在或路径越界: ${comp}`, "text/plain; charset=utf-8");
     }
-    const pkg = loadPackage(path.dirname(abs));
+    const pkg = loadPackage(findPackageDir(path.dirname(abs), assetsRoot));
     const scene = buildScene(getComponent(abs, { fresh: true }), { pkg, root });
     const html = renderHtml(
       scene,

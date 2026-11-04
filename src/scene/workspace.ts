@@ -52,7 +52,8 @@ export function listComponents(root: string, pkgName: string): { packageId: stri
         id: r.id,
         name: r.name,
         exported: r.kind === "component" ? r.exported : false,
-        component: `${pkgName}/${r.name}`,
+        // 包内子目录组件（path 如 /components/）必须拼进相对路径，否则 scene/view 404
+        component: `${pkgName}${r.path}${r.name}`,
       })),
   };
 }
@@ -101,7 +102,7 @@ export function searchWorkspace(root: string, q: string): { query: string; total
     for (const r of pkg.resources) {
       if (results.length >= SEARCH_LIMIT) break;
       if (r.kind !== "component") continue;
-      const component = `${pkgs.name}/${r.name}`;
+      const component = `${pkgs.name}${r.path}${r.name}`;
       // fresh：搜索应反映磁盘最新内容
       const scene = buildScene(getComponent(r.file, { fresh: true }), { pkg, root });
       collectMatches(scene.nodes, q, component, results);
