@@ -1,5 +1,5 @@
-import type { NodeRenderInput } from "./types.js";
-import { baseStyle, dataAttrs } from "./utils.js";
+import type { NodeRenderInput } from "../types.js";
+import { baseStyle, dataAttrs } from "../utils.js";
 
 // list（GList）节点渲染：按 buildScene 展开的 item 实例，SDK 词表布局（flow_hz/pagination 网格、row/column 流式）
 // item 内容运行时从 defaultItem 建项（SDK ListSource 语义），静态包只登记数量

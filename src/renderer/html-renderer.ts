@@ -1,21 +1,21 @@
 import path from "node:path";
 import type { ParsedComponent, ParsedNode } from "../parser/component-parser.js";
 import { selectorScript } from "../selection/component-selector.js";
-import { resolveGear } from "./nodes/gear.js";
+import { resolveGear } from "./gear.js";
 import { renderImageNode } from "./nodes/image-node.js";
 import { renderTextNode } from "./nodes/text-node.js";
 import { renderGraphNode } from "./nodes/graph-node.js";
 import { renderComponentNode } from "./nodes/component-node.js";
 import { renderListNode } from "./nodes/list-node.js";
 import { renderLoaderNode } from "./nodes/loader-node.js";
-import type { NodeRenderer, RenderContext, UnsupportedItem } from "./nodes/types.js";
-import { baseStyle, dataAttrs, esc, tintFilterDef } from "./nodes/utils.js";
+import type { NodeRenderer, RenderContext, UnsupportedItem } from "./types.js";
+import { baseStyle, dataAttrs, esc, tintFilterDef } from "./utils.js";
 
 // 场景树 -> 静态 HTML 渲染器（入口）
 // 每种 FairyGUI 节点类型的映射规则在 nodes/<类型>-node.ts，本文件只做：
 //   gear 解析（resolveGear）-> 按类型分发到对应节点渲染文件 -> 整页编排（SVG defs / 未支持清单 / 选择器）
 
-export type { RenderContext, UnsupportedItem } from "./nodes/types.js";
+export type { RenderContext, UnsupportedItem } from "./types.js";
 
 export interface RenderOptions {
   /** 纯净模式：无信息栏/选择器脚本/内边距，专供截图对比与 MCP 截图 */

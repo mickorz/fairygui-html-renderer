@@ -1,6 +1,6 @@
 import path from "node:path";
-import type { ImageResource } from "../../parser/package-parser.js";
-import type { ParsedNode } from "../../parser/component-parser.js";
+import type { ImageResource } from "../parser/package-parser.js";
+import type { ParsedNode } from "../parser/component-parser.js";
 import type { Geo, RenderContext } from "./types.js";
 
 // 渲染共享工具：转义 / 颜色 / 通用样式 / data 属性 / 九宫格 / 染色

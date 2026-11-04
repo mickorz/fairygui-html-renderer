@@ -1,5 +1,5 @@
-import type { NodeRenderInput } from "./types.js";
-import { baseStyle, dataAttrs, toCssColor } from "./utils.js";
+import type { NodeRenderInput } from "../types.js";
+import { baseStyle, dataAttrs, toCssColor } from "../utils.js";
 
 // graph 节点渲染：形状（ellipse/矩形）+ 填充色；gearColor 默认页覆盖填充
 

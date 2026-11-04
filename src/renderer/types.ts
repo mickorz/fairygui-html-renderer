@@ -1,5 +1,5 @@
-import type { ParsedComponent, ParsedNode } from "../../parser/component-parser.js";
-import type { FairyPackage } from "../../parser/package-parser.js";
+import type { ParsedComponent, ParsedNode } from "../parser/component-parser.js";
+import type { FairyPackage } from "../parser/package-parser.js";
 
 // 渲染器共享类型：各节点渲染文件（nodes/*.ts）与入口（html-renderer.ts）共用
 

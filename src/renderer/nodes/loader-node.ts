@@ -1,5 +1,5 @@
-import type { NodeRenderInput } from "./types.js";
-import { baseStyle, dataAttrs } from "./utils.js";
+import type { NodeRenderInput } from "../types.js";
+import { baseStyle, dataAttrs } from "../utils.js";
 
 // loader 节点渲染：无 url 时由运行时填充，静态渲染给灰底占位（不计入未支持清单）
 

@@ -1,4 +1,4 @@
-import type { ParsedComponent, ParsedNode, Gear } from "../../parser/component-parser.js";
+import type { ParsedComponent, ParsedNode, Gear } from "../parser/component-parser.js";
 import type { Geo } from "./types.js";
 
 // gear 处理：gearDisplay 可见性 / gearXY / gearSize / gearColor 默认页取值

@@ -1,5 +1,5 @@
-import type { NodeRenderInput } from "./types.js";
-import { baseStyle, dataAttrs, esc, nineSliceStyle, tintStyle } from "./utils.js";
+import type { NodeRenderInput } from "../types.js";
+import { baseStyle, dataAttrs, esc, nineSliceStyle, tintStyle } from "../utils.js";
 
 // image 节点渲染：普通图 <img>；九宫格 -> div + border-image（拉伸不变形）；染色 -> feColorMatrix filter
 

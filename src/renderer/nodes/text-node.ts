@@ -1,5 +1,5 @@
-import type { NodeRenderInput } from "./types.js";
-import { baseStyle, dataAttrs, esc, toCssColor } from "./utils.js";
+import type { NodeRenderInput } from "../types.js";
+import { baseStyle, dataAttrs, esc, toCssColor } from "../utils.js";
 
 // text 节点渲染：字号/颜色/描边/自动尺寸/对齐；gearColor 默认页覆盖属性色
 

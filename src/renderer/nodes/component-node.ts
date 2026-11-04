@@ -1,5 +1,5 @@
-import type { NodeRenderInput } from "./types.js";
-import { baseStyle, dataAttrs } from "./utils.js";
+import type { NodeRenderInput } from "../types.js";
+import { baseStyle, dataAttrs } from "../utils.js";
 
 // component 节点渲染：容器 <div> 递归渲染子场景（子节点 absolute 定位相对本容器）
 
