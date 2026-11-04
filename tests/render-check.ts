@@ -213,6 +213,15 @@ check("K：gearDisplay2 页成员可见性（首页不在 pages -> 隐藏）", /
 // 按钮 icon 扩展属性注入（与 title 同机制，Demo_Button/Demo_Label 实测遗漏后补）
 check("K：Button icon 注入 image 型（写入 name=icon loader）", /data-fgui-name="btnImgIcon"[\s\S]*?data-fgui-name="icon"[^>]*><img[^>]*pic\.png/.test(p3Html));
 check("K：Button icon 注入 movieclip 型（loader 渲染 jta 首帧）", /data-fgui-name="btnJtaIcon"[\s\S]*?data-fgui-name="icon"[^>]*><img src="data:image\/png;base64/.test(p3Html));
+// GButton 独立分支（扩展层分发，extention="Button"；语义属性注入在 div 开头，位于 data-fgui-name 之前）
+check("K补：按钮分支语义标记（data-fgui-ext + role）", /<div data-fgui-ext="Button" role="button"[^>]*data-fgui-name="btnImgIcon"/.test(flat(p3Html)));
+check("K补：未选中按钮 up 态可见 selectedOver 态隐藏", /data-fgui-name="bgUp"[^>]*style="left:0px/.test(flat(p3Html)) && /data-fgui-name="bgSel"[^>]*visibility:hidden/.test(flat(p3Html)));
+{
+  const i = p3Html.indexOf('data-fgui-name="btnChecked"');
+  const sub = p3Html.slice(i, i + 1200);
+  check("K补：checked 切 selectedOver 页（aria + 背景切换）", /aria-pressed="true"/.test(p3Html.slice(Math.max(0, p3Html.lastIndexOf("<div", i)), i)) && sub.includes('data-fgui-name="bgSel"') && !/data-fgui-name="bgSel"[^>]*visibility:hidden/.test(sub) && /data-fgui-name="bgUp"[^>]*visibility:hidden/.test(sub));
+}
+check("K补：titleFontSize 注入 title 文本", /data-fgui-name="btnChecked"[\s\S]*?data-fgui-name="title"[^>]*font-size:20px/.test(p3Html));
 
 if (failed > 0) {
   console.error(`检查失败 ${failed} 项`);

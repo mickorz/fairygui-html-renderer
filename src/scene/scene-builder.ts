@@ -200,6 +200,31 @@ function injectExtensionProps(copy: ParsedNode, opts: SceneOptions, stack: strin
   if (icon !== undefined && opts.root) {
     applyIcon(child, icon, opts, globalIndexOf(opts.root), stack);
   }
+  // Button 专属语义（button-node 分支的数据层）：checked/titleColor/titleFontSize
+  if (props.Button) injectButtonProps(child, props.Button);
+}
+
+/**
+ * GButton 专属属性注入（语义依据 OpenFairy Button/Migrate 源码）：
+ * - checked：button 控制器（固定名）切到 selectedOver 页（按页名找，无该页不动）；
+ *   页切换发生在构建期副本上，gearDisplay/gearLook 求值链自动生效（三态背景/按下态正确）
+ * - titleColor/titleFontSize：注入 name="title" 文本（定义级属性，同 title 机制）
+ */
+function injectButtonProps(child: import("../parser/component-parser.js").ParsedComponent, props: Record<string, string>): void {
+  const ctrl = child.controllers.find((c) => c.name === "button");
+  if (ctrl && (props.checked === "1" || props.checked === "true")) {
+    const pageIdx = ctrl.pageNames.indexOf("selectedOver");
+    if (pageIdx >= 0) ctrl.selected = ctrl.pageIds[pageIdx];
+  }
+  if (props.titleColor !== undefined || props.titleFontSize !== undefined) {
+    for (const n of child.nodes) {
+      if (n.name === "title" && n.type === "text") {
+        n.attrs = { ...n.attrs };
+        if (props.titleColor !== undefined) n.attrs.color = props.titleColor;
+        if (props.titleFontSize !== undefined) n.attrs.fontSize = props.titleFontSize;
+      }
+    }
+  }
 }
 
 function applyTitle(scene: ParsedComponent, title: string): void {

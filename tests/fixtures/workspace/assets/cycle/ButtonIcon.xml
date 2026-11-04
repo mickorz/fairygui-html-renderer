@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<component size="30,30">
+<component size="30,30" extention="Button">
+  <controller name="button" pages="0,up,1,down,2,over,3,selectedOver"/>
   <displayList>
+    <graph id="n0" name="bgUp" xy="0,0" size="30,30" type="rect" fillColor="#ff00ff00">
+      <gearDisplay controller="button" pages="0,2"/>
+    </graph>
+    <graph id="n2" name="bgSel" xy="0,0" size="30,30" type="rect" fillColor="#ffff0000">
+      <gearDisplay controller="button" pages="3"/>
+    </graph>
+    <text id="n3" name="title" xy="0,0" size="30,30" fontSize="12" text="T"/>
     <loader id="n1" name="icon" xy="0,0" size="30,30"/>
   </displayList>
+  <Button/>
 </component>

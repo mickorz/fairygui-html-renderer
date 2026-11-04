@@ -66,6 +66,8 @@ export interface ParsedNode {
 export interface Controller {
   name: string;
   pageIds: string[];
+  /** 页名与 pageIds 同长对齐（奇数位；Button 状态页按页名映射用，如 selectedOver） */
+  pageNames: string[];
   selected: string;
 }
 
@@ -175,11 +177,15 @@ export function parseComponent(xmlFile: string): ParsedComponent {
     const a = attrsOf(c);
     // pages 是 id,name 交替（逗号分隔，name 可为空，如 "0,,1,"）。
     // 修复：不能 filter(Boolean) 去空串（会破坏交替关系，致 "0,,1,,2," 解析成 [0,2]），
-    // 应先取偶数位再去除空 id（尾逗号产生的空尾项自然落在奇数位或为空 id）
-    const pageIds = String(a.pages ?? "")
-      .split(",")
-      .filter((_, i) => i % 2 === 0)
-      .filter((id) => id !== "");
+    // 应成对过滤：id 为空的整对丢弃（尾逗号产生的空尾项自然落空）
+    const raw = String(a.pages ?? "").split(",");
+    const pageIds: string[] = [];
+    const pageNames: string[] = [];
+    for (let i = 0; i < raw.length; i += 2) {
+      if (raw[i] === "" ) continue;
+      pageIds.push(raw[i]);
+      pageNames.push(raw[i + 1] ?? "");
+    }
     // R15 初始页规则（对齐 OpenFairy InitialPage）：homePageType=specific 时取 homePage 页，缺省第一页；
     // selected 是编辑器残留选中态，不作为初始页依据
     let selected = pageIds[0] ?? "";
@@ -187,7 +193,7 @@ export function parseComponent(xmlFile: string): ParsedComponent {
       const idx = pageIds.indexOf(a.homePage);
       if (idx >= 0) selected = pageIds[idx];
     }
-    return { name: a.name, pageIds, selected };
+    return { name: a.name, pageIds, pageNames, selected };
   });
 
   // displayList 下的子项顺序即 XML 原始顺序（混排的 image/text/graph/component ...）

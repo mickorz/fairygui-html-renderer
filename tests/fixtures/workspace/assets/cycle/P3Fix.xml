@@ -29,5 +29,8 @@
     <component id="n10" name="btnJtaIcon" xy="380,40" size="30,30" src="c_bi">
       <Button icon="ui://test01m_a"/>
     </component>
+    <component id="n11" name="btnChecked" xy="380,80" size="30,30" src="c_bi">
+      <Button checked="1" titleFontSize="20"/>
+    </component>
   </displayList>
 </component>
