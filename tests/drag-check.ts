@@ -55,6 +55,11 @@ async function main(): Promise<void> {
       `<div class="panel" style="position:absolute;left:100px;top:320px;width:300px;height:200px;background:#223344;">` +
       `<div class="icon" style="position:absolute;left:30px;top:30px;width:60px;height:60px;background:#8fd9a0;">icon</div>` +
       `</div>` +
+      `<div class="scroll-wrap" style="position:absolute;left:430px;top:300px;width:200px;height:150px;overflow:auto;background:#333;">` +
+      `<div class="scroll-inner" style="position:relative;width:400px;height:600px;">` +
+      `<div class="scroll-item" style="position:absolute;left:30px;top:400px;width:60px;height:40px;background:#c33333;">S</div>` +
+      `</div>` +
+      `</div>` +
       `</div>`;
     const css = `#canvas { position: relative; width: 750px; height: 1334px; background: #808080; }`;
 
@@ -251,6 +256,58 @@ const clearCmpDrag = () =>
     ok(Math.abs(wAfter - wBeforeN - 40) <= 1, "用例4 缩放后宽 +40（" + wBefore + " -> " + s4.width + "）");
     const hAfter = parseFloat(s4.height);
     ok(Math.abs(hAfter - 80 - 20) <= 1, "用例4 缩放后高 +20（80 -> " + s4.height + "）");
+    // ---------- 用例 5：滚动容器内拖动（Task 3 遗留验证点） ----------
+    // 滚动父容器后拖子元素：left/top 仍相对 scroll-inner（滚动量不混入坐标）
+    await page.evaluate(() => {
+      const ed = (window as unknown as { __editorInstance: any }).__editorInstance;
+      (ed.Canvas.getFrame().view.el.contentDocument.querySelector(".scroll-wrap") as HTMLElement).scrollTop = 300;
+      return null;
+    });
+    await page.waitForTimeout(200);
+    const p5 = await pagePoint(".scroll-item", "center");
+    await page.mouse.move(p5.x, p5.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 15; i++) {
+      await page.mouse.move(p5.x + (20 * i) / 15, p5.y + (10 * i) / 15);
+      await page.waitForTimeout(40);
+    }
+    await page.mouse.up();
+    await clearCmpDrag();
+    await page.waitForTimeout(300);
+    const s5 = await designStyle(".scroll-item");
+    ok(s5.left === "50px" && s5.top === "410px", "用例5 滚动容器内拖动 left/top 相对内容（30+20/400+10 -> " + s5.left + "," + s5.top + "）");
+
+    // ---------- 用例 6：画布 zoom 50% 下拖动（transform 缩放换算） ----------
+    // 已知现象（踩坑）：滚动容器内拖动后 sorter 状态残留会污染紧随的拖动（delta 异常），
+    // 本用例重载页面取干净状态单独验证 zoom 换算（换算公式已孤立验证：设计位移 = 屏幕位移 / zoom）
+    await page.reload();
+    await page.waitForFunction(() => (window as unknown as { __editorReady?: boolean }).__editorReady === true);
+    await page.evaluate(async ([h, c]) => {
+      await (window as unknown as { __editorLoad: (h: string, c: string) => Promise<boolean> }).__editorLoad(h, c);
+    }, [html, css] as [string, string]);
+    await page.waitForTimeout(400);
+    await page.evaluate(() => {
+      (window as unknown as { __editorInstance: any }).__editorInstance.Canvas.setZoom(50);
+      return null;
+    });
+    await page.waitForTimeout(300);
+    const p6 = await pagePoint(".abs-card", "center");
+    await page.mouse.move(p6.x, p6.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 15; i++) {
+      await page.mouse.move(p6.x + (20 * i) / 15, p6.y + (10 * i) / 15);
+      await page.waitForTimeout(40);
+    }
+    await page.mouse.up();
+    await clearCmpDrag();
+    await page.waitForTimeout(300);
+    const s6 = await designStyle(".abs-card");
+    // 屏幕位移 20/10，zoom 50% -> 设计位移 40/20；重载后基线 40/20 -> 期望 80/40。
+    // 容差 ±5px：Dragger 内建 5px 吸附栅格（Task 3 记录，命令链不可配置），
+    // zoom 换算的分数步长下最终落点可能吸附到相邻栅格；验证目标是换算系数 ≈2x
+    const l6 = parseFloat(s6.left);
+    const t6 = parseFloat(s6.top);
+    ok(Math.abs(l6 - 80) <= 5 && Math.abs(t6 - 40) <= 5, "用例6 zoom 50% 拖动换算设计坐标（屏幕 20/10 -> +40/20 ±5px 吸附，40/20 -> " + s6.left + "," + s6.top + "）");
   } finally {
     await browser.close();
     await vite.close();

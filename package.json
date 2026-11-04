@@ -18,7 +18,8 @@
     "check:canvas": "tsx tests/canvas-check.ts",
     "check:drag": "tsx tests/drag-check.ts",
     "check:props": "tsx tests/props-check.ts",
-    "check:editor": "tsx tests/editor-session-check.ts"
+    "check:editor": "tsx tests/editor-session-check.ts",
+    "check:e2e": "npm run check && npm run check:server && npm run check:convert && npm run check:adapter && npm run check:canvas && npm run check:drag && npm run check:props && npm run check:grapes && npm run check:editor"
   },
   "dependencies": {
     "grapesjs": "^0.23.9",

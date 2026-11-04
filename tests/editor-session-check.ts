@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { chromium } from "@playwright/test";
+import { readPngSize } from "../src/convert/style-mapper.js";
 import { createServer as createViteServer, type ViteDevServer } from "vite";
 import type { AddressInfo } from "node:net";
 import { createApp } from "../src/server/server.js";
@@ -282,6 +283,18 @@ try {
   const dAfterKeep = JSON.parse(afterKeep.body) as { html: string; sourceRevision: string };
   ok(dAfterKeep.sourceRevision === "r3", "B7 重新保存 revision r3（取消未保存，" + dAfterKeep.sourceRevision + "）");
   ok(dAfterKeep.html.includes("node_hero") && !dAfterKeep.html.includes("node_999"), "B7 以恢复态为准覆盖（node_hero 恢复）");
+
+  // B8. 浏览器会话 convert 闭环：编辑态 -> 新包 -> Renderer bare 回读截图（存在性与尺寸）
+  const r8 = await api("POST", "/api/editor/session/bs1/convert", { outPkgName: "pkg-bs1" });
+  ok(r8.status === 200, "B8 编辑态 convert 成新包（" + r8.status + "）");
+  await page.goto(apiBase + "/view?component=pkg-bs1/Root.xml&bare=1");
+  await page.waitForTimeout(1500);
+  const shot = path.resolve("dev-examples/ui-editor-p0/convert-bare.png");
+  fs.mkdirSync(path.dirname(shot), { recursive: true });
+  await page.screenshot({ path: shot });
+  const png = readPngSize(shot);
+  const size = fs.statSync(shot).size;
+  ok(!!png && png.width > 0 && png.height > 0 && size > 10_000, "B8 bare 回读截图存在且非空白（" + png?.width + "x" + png?.height + "，" + size + " 字节）");
 
   await browser.close();
 } finally {

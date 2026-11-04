@@ -40,7 +40,7 @@
 - 嵌套坐标：拖子节点只改子相对父容器的 left/top，父容器与兄弟不动（断言验证）；
 - 缩放写内联 style，增量与拖动位移一致，不产生额外类规则；
 - 已知合成事件特性（非产品缺陷）：dragMode absolute 每次拖动结束设 `_cmpDrag` 标志，真实浏览器靠紧随 mouseup 的 trailing click 清除；Playwright 合成拖动 mouseup 被 preventDefault 后 trailing click 不触发，标志残留会吞掉下一次 click——e2e 每次拖动后显式清除（详见 experience/grapesjs-cmpdrag-synthetic-event-residue.md）；
-- 待 Task 7 e2e 补齐：滚动容器内拖动、节点 transform: scale 下拖动两场景的坐标换算断言。
+- 已补齐（Task 7，check:drag 用例 5/6，2026-11-04）：滚动容器内拖动 left/top 仍相对内容坐标（滚动量不混入）；画布 zoom 50%（transform scale）下拖动设计位移 = 屏幕位移 / zoom（±5px 内建吸附栅格容差）。两场景坐标换算结论均「正确」。注意：滚动容器拖动后 sorter 状态残留会污染紧随的下一次拖动（自动化层面以 reload 规避，详见经验文档 grapesjs-scroll-drag-sorter-residue.md）。
 
 ### 问题 4：导出的 HTML 能否被现有 Converter 正确处理？
 
@@ -50,7 +50,7 @@
 - 会话资源布局与 Converter 相对解析规则对齐：`editor/index.html + editor/assets/`（fairy-writer 以 htmlDir 解析 src 并复制进包），画布侧经 asset 路由同构映射，导出路径原样保留不做改写；
 - 验证一（check:editor API12 系列）：会话保存态 -> convert -> 隔离新包落盘 `<工程assets>/<pkg>/`（Root.xml/package.xml/images），报告落盘会话 `output/validation-report.json`（沿用 runPipeline 字段 + 输入路径/节点总数/资源清单），回读对照 matched>0，重复 convert 400 PKG_EXISTS 不覆盖，Renderer `?bare=1` 回读 200；
 - 验证二（check:convert sessionlike 样本）：会话形态输入（body 片段 + `<link>` 独立 styles.css + assets/ 子目录）零改动走 runPipeline——类规则定位/颜色经渲染后提取、资源按 htmlDir 相对解析复制进包、回读坐标 ±1px、确定性 id；
-- 待 Task 7：转换后 bare 回读截图与编辑器画布对照（e2e convert.spec）；T17 真实 FairyGUI 编辑器人工验收由用户实机执行。
+- 已补齐（Task 7，check:editor B8）：编辑态 convert 成新包后 Renderer bare 回读截图存在且非空白（1500x1000 视口渲染）；「与编辑器画布逐像素对照」未做（两渲染管线字体/抗锯齿必然差异，逐像素对照无意义，P0 以结构对照（回读 matched 节点坐标 ±1px）为验收口径）。T17 真实 FairyGUI 编辑器人工验收由用户实机执行（见 P0 执行报告遗留事项）。
 
 ---
 
