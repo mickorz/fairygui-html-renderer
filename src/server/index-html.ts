@@ -78,7 +78,12 @@ function doSearch() {
           resultsEl.querySelectorAll("button").forEach(function (x) { x.classList.remove("active"); });
           b.classList.add("active");
           crumb.textContent = "定位: " + hit.path + "  |  " + hit.component;
-          frame.src = "/view?component=" + encodeURIComponent(hit.component) + "&focus=" + encodeURIComponent(hit.key);
+          fetch("/view?component=" + encodeURIComponent(hit.component) + "&focus=" + encodeURIComponent(hit.key))
+            .then(function (r) {
+              if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + " " + t.slice(0, 120)); });
+              frame.src = "/view?component=" + encodeURIComponent(hit.component) + "&focus=" + encodeURIComponent(hit.key);
+            })
+            .catch(function (e) { crumb.textContent = "加载失败: " + e.message; });
         };
         resultsEl.appendChild(b);
       });
@@ -122,8 +127,15 @@ function loadComponents(pkgName, list) {
         b.onclick = function () {
           list.querySelectorAll("button").forEach(function (x) { x.classList.remove("active"); });
           b.classList.add("active");
-          crumb.textContent = "组件: " + c.component + "  |  资源ID: " + c.id;
-          frame.src = "/view?component=" + encodeURIComponent(c.component);
+          crumb.textContent = "加载中: " + c.component;
+          fetch("/view?component=" + encodeURIComponent(c.component))
+            .then(function (r) {
+              if (!r.ok) return r.text().then(function (t) { throw new Error("HTTP " + r.status + " " + t.slice(0, 120)); });
+              frame.src = "/view?component=" + encodeURIComponent(c.component);
+              return r.text();
+            })
+            .then(function () { crumb.textContent = "组件: " + c.component + "  |  资源ID: " + c.id; })
+            .catch(function (e) { crumb.textContent = "加载失败: " + e.message; });
         };
         list.appendChild(b);
       });
