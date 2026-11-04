@@ -86,7 +86,8 @@ export function nineSliceStyle(res: ImageResource, ctx: RenderContext): string |
   const bottom = Math.max(0, res.height - y - h);
   const repeat = res.scale === "tile" ? "repeat" : "stretch";
   return [
-    `border-image-source:url("${ctx.toAssetUrl(res.file)}")`,
+    // 单引号：style 属性由双引号包裹，CSS url 内用单引号避免截断 HTML 属性（老 bug：workspace 下九宫格图全失效）
+    `border-image-source:url('${ctx.toAssetUrl(res.file)}')`,
     `border-image-slice:${y} ${right} ${bottom} ${x}`,
     `border-image-width:${y}px ${right}px ${bottom}px ${x}px`,
     `border-image-repeat:${repeat}`,

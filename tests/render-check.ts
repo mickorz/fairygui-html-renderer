@@ -39,6 +39,7 @@ const bagHtml = renderHtml(bagWin, { pkg, toAssetUrl: (f) => f });
 
 check("嵌套组件 frame 与 closeButton 三层展开", bagHtml.includes('data-fgui-name="frame"') && bagHtml.includes('data-fgui-name="closeButton"'));
 check("九宫格 slice 换算 78 86 66 88", bagHtml.includes("border-image-slice:78 86 66 88"));
+check("九宫格 url 单引号不截断 style 属性（老 bug 回归）", /border-image-source:url\('[^']*'\)/.test(bagHtml) && !/border-image-source:url\("/.test(bagHtml));
 check("9grid 超界 clamp（负 slice 归零）", bagHtml.includes("border-image-slice:1 83 0 83"));
 check("gearXY 首页取值 n4=(0,10)（R15 初始页规则）", /data-fgui-id="n4"[^>]*left:0px;top:10px/.test(flat(bagHtml)));
 // R15：初始页按 homePage 规则（缺省第一页），编辑器残留 selected 不再影响渲染；c1 首页 -> n1/n3 可见

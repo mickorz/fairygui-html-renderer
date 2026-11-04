@@ -60,8 +60,14 @@ export function renderImageNode(input: NodeRenderInput): string {
     : "";
   const filter = [tint, node.attrs.grayed === "true" ? "grayscale(1)" : ""].filter(Boolean).join(" ");
   if (nine) {
-    // 九宫格：div + border-image（拉伸不变形）
-    return `<div ${attrs} class="fgui-node" style="${gearStyle}${baseStyle(geo, node)}${alphaStyle ? ";" + alphaStyle : ""};${nine};${fillClip ?? ""}${fillClip ? ";" : ""}${filter ? `filter:${filter};` : ""}"></div>`;
+    // 九宫格：div + border-image（拉伸不变形）；无 size 属性时用图原生尺寸（与普通分支同兑底，Button.xml n1 实测）
+    const nineStyle = [`${gearStyle}${baseStyle(geo, node)}`];
+    if (!geo.size && res.width) nineStyle.push(`width:${res.width}px`, `height:${res.height}px`);
+    if (alphaStyle) nineStyle.push(alphaStyle);
+    nineStyle.push(nine);
+    if (fillClip) nineStyle.push(fillClip);
+    if (filter) nineStyle.push(`filter:${filter}`);
+    return `<div ${attrs} class="fgui-node" style="${nineStyle.join(";")}"></div>`;
   }
   const style = [`${gearStyle}${baseStyle(geo, node)}`];
   if (!geo.size && res.width) style.push(`width:${res.width}px`, `height:${res.height}px`);
