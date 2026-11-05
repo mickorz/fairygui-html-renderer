@@ -4,6 +4,9 @@ import { selectorScript } from "../selection/component-selector.js";
 import { resolveGear } from "./gear.js";
 import { renderImageNode } from "./nodes/image-node.js";
 import { renderTextNode } from "./nodes/text-node.js";
+import { renderRichTextNode } from "./nodes/richtext-node.js";
+import { renderInputTextNode } from "./nodes/inputtext-node.js";
+import { renderGroupNode } from "./nodes/group-node.js";
 import { renderGraphNode } from "./nodes/graph-node.js";
 import { renderComponentNode } from "./nodes/component-node.js";
 import { renderListNode } from "./nodes/list-node.js";
@@ -26,11 +29,11 @@ export interface RenderOptions {
 /** 节点类型 -> 渲染器注册表（新增类型：在 nodes/ 加文件并在此注册） */
 const RENDERERS: Record<string, NodeRenderer> = {
   image: renderImageNode,
-  text: renderTextNode,
-  richtext: renderTextNode, // R13：richtext 复用 text 渲染（ubb 属性驱动富文本映射）
-  inputtext: renderTextNode, // R23：输入框静态呈现（text/prompt/password）
+  text: renderTextNode, // GTextField
+  richtext: renderRichTextNode, // GRichTextField（R13：ubb 属性驱动富文本映射）
+  inputtext: renderInputTextNode, // GTextInput（R23：静态呈现 text/prompt/password）
   graph: renderGraphNode,
-  group: () => "", // R21：group 无视觉（成员靠 group 属性引用，已各自渲染）
+  group: renderGroupNode, // GGroup（R21：无视觉，成员靠 group 属性引用，已各自渲染）
   component: renderComponentNode,
   list: renderListNode,
   loader: renderLoaderNode,

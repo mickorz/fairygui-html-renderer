@@ -4,6 +4,7 @@ import { renderButtonNode } from "./button-node.js";
 import { renderComboBoxNode } from "./combobox-node.js";
 import { renderProgressNode } from "./progress-node.js";
 import { renderSliderNode } from "./slider-node.js";
+import { renderLabelNode } from "./label-node.js";
 
 // component 节点渲染：容器 <div> 递归渲染子场景（子节点 absolute 定位相对本容器）
 // 扩展层分发：extention="Button" 的组件走 GButton 独立分支（button-node，语义包装/按钮特化集中地）
@@ -15,6 +16,7 @@ export function renderComponentNode(input: NodeRenderInput): string {
   if (ext === "ComboBox") return renderComboBoxNode(input);
   if (ext === "ProgressBar") return renderProgressNode(input);
   if (ext === "Slider") return renderSliderNode(input);
+  if (ext === "Label") return renderLabelNode(input);
   return renderComponentCore(input);
 }
 

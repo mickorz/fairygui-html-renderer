@@ -206,7 +206,8 @@ function injectExtensionProps(copy: ParsedNode, opts: SceneOptions, stack: strin
     applyIcon(child, icon, opts, globalIndexOf(opts.root), stack);
   }
   // Button 专属语义（button-node 分支的数据层）：checked/titleColor/titleFontSize
-  if ((props?.Button || childExt === "Button") && Object.keys(merged).length) injectButtonProps(child, merged);
+  // Button/Label/ComboBox 共用 title 系属性注入（OpenFairy：Label 仅 title/titleIcon/titleColor/titleFontSize）
+  if ((props?.Button || (childExt && ["Button", "ComboBox", "Label"].includes(childExt))) && Object.keys(merged).length) injectButtonProps(child, merged);
   // ComboBox：选项静态化（selectedIndex 缺省 0，title 取首项；下拉弹层属运行时不渲染）
   if (childExt === "ComboBox") {
     const item = copy.extensionItems?.[0];
