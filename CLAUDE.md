@@ -77,6 +77,7 @@
 5. **多渲染分支对称核对**：同一节点类型的多个渲染分支（img 路径 vs div+border-image 路径）新增分支时，对照旧分支核对公共兑底逻辑（尺寸兑底/对齐/染色）是否要复制。
 6. **改代码不生效先查进程**：排查"改了代码页面没变化"，第一步确认 server 进程启动时间是否早于代码提交（netstat 查端口 PID）。区分"数据不生效"（XML 层 fresh 重解析覆盖）与"代码不生效"（必须重启进程）；长驻服务一律 tsx watch。
 7. **九宫格 border-image 必须加 fill 关键字**：CSS `border-image-slice` 默认不画中心（四边四角之外的中间镂空），FairyGUI scale9grid 是画中心的（中心拉伸）。漏 `fill` 会镂空露出 stage 底色，看起来像"文本有灰背景"。（坑见 experience/2026-11-04-九宫格border-image漏fill中心镂空.md）
+8. **渲染器节点文件一类型一文件**：`src/renderer/nodes/` 每种节点类型/扩展类型对应一个独立渲染文件（image/text/graph/jta/... 节点类型 + button/combobox/progress/slider 扩展分支），**禁止多类型共用同一渲染文件**。同族共用逻辑抽私有/导出函数（如 renderButtonLike/renderProgressLike），各类型文件做薄包装。依据：用户明确要求文件结构与概念一一对应（便于定位与扩展）。（节点类型 vs 扩展类型的挂载点区分见规则 4 相关经验）
 
 ## 看图与视觉验证（MCP 工具链）
 
