@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="120,60" extention="Tree">
+  <displayList>
+    <list id="n1" name="tree" xy="0,0" size="120,60" defaultItem="ui://test01c_tc" treeView="true" indent="10">
+      <item title="Folder" level="0" isFolder="true"/>
+      <item title="LeafA" icon="ui://test01c_si" level="1" isFolder="false"/>
+    </list>
+  </displayList>
+</component>

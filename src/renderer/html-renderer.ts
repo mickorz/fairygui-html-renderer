@@ -103,6 +103,10 @@ export function renderHtml(
 body { background:#2b2b2b; margin:0; padding:${bare ? 0 : 16}px; font-family:sans-serif; }
 .fgui-stage { position:relative; background:#5a5a5a; overflow:${comp.overflow === "scroll" ? "auto" : "hidden"}; }
 .fgui-node { position:absolute; box-sizing:border-box; }
+/* 可滚容器滚动条可见化（N1）：Chrome 覆盖式滚动条默认静止时不显示 */
+.fgui-stage::-webkit-scrollbar, .fgui-node::-webkit-scrollbar { width:12px; height:12px; }
+.fgui-stage::-webkit-scrollbar-thumb, .fgui-node::-webkit-scrollbar-thumb { background:#8a8a8a; border-radius:6px; }
+.fgui-stage::-webkit-scrollbar-track, .fgui-node::-webkit-scrollbar-track { background:#3c3c3c; }
 .fgui-selected { outline:2px solid #ffd666 !important; box-shadow:0 0 10px #ffd666 !important; z-index:9999; }
 #fgui-info { position:fixed; left:0; top:0; right:0; background:rgba(0,0,0,.78); color:#8ee6ff; padding:6px 12px; font-size:12px; z-index:10000; }
 .unsupported-list { position:fixed; left:0; bottom:0; right:0; background:rgba(0,0,0,.78); color:#ffd666; padding:6px 12px; font-size:12px; max-height:120px; overflow:auto; }

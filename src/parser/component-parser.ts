@@ -51,7 +51,7 @@ export interface ParsedNode {
   /** list 单个 item 的尺寸（渲染 wrapper 需要：子节点 absolute 不贡献尺寸） */
   defaultItemSize?: { w: number; h: number };
   /** component 节点递归展开后的子组件（由 scene-builder 构建填充） */
-  childComp?: { file: string; comp: ParsedComponent };
+  childComp?: { file: string; comp: ParsedComponent; pkg?: import("./package-parser.js").FairyPackage };
   /** loader 节点 url 指向包内 image 的解析结果（由 scene-builder 构建填充） */
   loaderRes?: ImageResource | OtherResource;
   /** 构建期解析的 BMFont 位图字体（ui:// font 属性，字符 -> 图文件表） */

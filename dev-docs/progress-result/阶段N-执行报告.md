@@ -31,6 +31,17 @@
 - ScrollFix.xml（根级 overflow=scroll 夹具）、TreeFix.xml（extention="Tree" + 内 list 骨架）+ package.xml 登记 + P4Fix 两实例
 - render-check 新增 5 项断言
 
+## 补丁（同日，用户实测反馈 3 项 + 树结论修正）
+
+| 反馈 | 根因 | 修复 |
+|---|---|---|
+| Demo_Slider 标尺/grip 位置不对 | bar 是不带 size 的 image（尺寸取资源原生宽高），注入被跳过；且原版 GSlider.Update 只改 bar 尺寸，grip 跟随靠单元格 `relation right-right` | injectProgressProps 支持 image 原生尺寸兜底 + grip 按 bar 右/下边缘平移量联动（bar 100->80 则 grip 44->24）；childComp 增 pkg 字段 |
+| Demo_Component 看不到滚动条 | Chrome 覆盖式滚动条静止时不绘制 | stage/可滚容器追加 ::-webkit-scrollbar 样式（宽 12px、深灰滑块） |
+| Demo_MovieClip 不播放 | jta 只渲染首帧 | N10 落地：多帧全部内联，CSS steps(1,end) 离散动画 + 负 delay 错帧（15 帧 / interval 102ms / 1.53s 循环）；显式 frame 属性仍固定单帧；loader 承载 movieclip 补 align/vAlign 画布居中偏移 |
+| 树数据"无 XML 通道"结论错误 | 只按类名搜 SDK 源码，未 grep 真实样本属性词 | 实测 TreeView 包：`<list treeView="true" indent="15">` + `<item level isFolder>` 即树数据通道；N5b 实现（indent 宽 = level×indent，leaf 控制器 isFolder?0:1，expanded 固定 1 全展开）；CLAUDE.md 增规则 9 |
+
+验证：render 101 -> 105 项 + 四套件全绿；Demo_Slider 4 滑块 grip 位置 MCP 视觉确认、Demo_MovieClip 两帧间隔 0.55s 截图 diff 确认播放、Demo_Component 双滚动条截图确认、TreeView/Main 7 行树缩进与箭头 MCP 确认。
+
 ## 决策表更新
 
 N1、N5 已勾选为已做；其余维持（N4/N8/N13/N14 永久不做，N2/N3/N6/N7/N9/N10/N11 待触发）。
