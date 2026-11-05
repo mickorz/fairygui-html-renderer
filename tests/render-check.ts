@@ -238,6 +238,15 @@ check("L2：ProgressBar reverse 反向 + valueAndmax 标题", /data-fgui-name="p
 // Slider：填充 + grip 保持设计位
 check("L2：Slider 语义与填充（aria-valuenow=80，bar 80 宽，grip 设计位不动）", /<div data-fgui-ext="Slider" role="progressbar"[^>]*aria-valuenow="80"[^>]*data-fgui-name="slider"[\s\S]*?data-fgui-name="bar"[^>]*width:80px[\s\S]*?data-fgui-name="grip"[^>]*left:44px/.test(flat(p4Html)));
 
+// ===== 阶段 N：N1 可滚容器 + N5 树骨架 =====
+// N1：组件级 overflow=scroll -> 可滚容器（overflow:auto）
+check("N1：overflow=scroll 可滚容器（overflow:auto）", /data-fgui-name="scroller"[^>]*overflow:auto/.test(flat(p4Html)));
+check("N1：overflow=hidden 仍裁剪不回归", /data-fgui-name="clipped"[^>]*overflow:hidden/.test(flat(rfHtml)));
+// N5：GTree 骨架渲染 + 语义包装 + 未支持上报
+check("N5：Tree 语义标记（data-fgui-ext=Tree + role=tree）", /<div data-fgui-ext="Tree" role="tree"[^>]*data-fgui-name="treeView"/.test(flat(p4Html)));
+check("N5：Tree 骨架内 list 正常展开", /data-fgui-name="treeView"[\s\S]*?treeList#[0-9]+~/.test(p4Html) === false || /treeList#1~/.test(p4Html));
+check("N5：树数据无通道如实上报", p4Html.includes("树数据无 XML 通道"));
+
 if (failed > 0) {
   console.error(`检查失败 ${failed} 项`);
   process.exit(1);

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="40,40" overflow="scroll">
+  <displayList>
+    <graph id="n1" name="scrollChild" xy="0,0" size="40,120" type="rect" fillColor="#ff0066cc"/>
+  </displayList>
+</component>

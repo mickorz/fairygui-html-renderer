@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="80,60" extention="Tree">
+  <displayList>
+    <list id="n1" name="treeList" xy="0,0" size="80,60" defaultItem="ui://test01c_si">
+      <item/>
+      <item/>
+    </list>
+  </displayList>
+  <Tree/>
+</component>

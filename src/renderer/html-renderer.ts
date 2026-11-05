@@ -101,7 +101,7 @@ export function renderHtml(
 <title>${esc(path.basename(comp.file))} - fairygui-html-renderer</title>
 <style>
 body { background:#2b2b2b; margin:0; padding:${bare ? 0 : 16}px; font-family:sans-serif; }
-.fgui-stage { position:relative; background:#5a5a5a; overflow:hidden; }
+.fgui-stage { position:relative; background:#5a5a5a; overflow:${comp.overflow === "scroll" ? "auto" : "hidden"}; }
 .fgui-node { position:absolute; box-sizing:border-box; }
 .fgui-selected { outline:2px solid #ffd666 !important; box-shadow:0 0 10px #ffd666 !important; z-index:9999; }
 #fgui-info { position:fixed; left:0; top:0; right:0; background:rgba(0,0,0,.78); color:#8ee6ff; padding:6px 12px; font-size:12px; z-index:10000; }
@@ -112,7 +112,7 @@ body { background:#2b2b2b; margin:0; padding:${bare ? 0 : 16}px; font-family:san
 ${defs}
 ${bare ? "" : '<div id="fgui-info">点击画布中的组件查看定位信息</div>'}
 ${listHtml}
-<div class="fgui-stage" style="width:${comp.size[0]}px;height:${comp.size[1]}px">
+<div class="fgui-stage" style="width:${comp.size[0]}px;height:${comp.size[1]}px${comp.overflow === "scroll" ? ";overflow:auto" : ""}">
     ${inner}
 </div>
 ${bare ? "" : `<script>${selectorScript()}</script>`}
