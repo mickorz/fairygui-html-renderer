@@ -28,6 +28,8 @@ export interface JtaFrame {
 export interface JtaData {
   width: number;
   height: number;
+  /** 帧间隔（毫秒）：头部偏移 7 的 int32（OpenFairy Migrate.ImportMovieClip 同源） */
+  interval: number;
   frames: JtaFrame[];
 }
 
@@ -45,6 +47,7 @@ export function parseJta(file: string): JtaData {
   if (magic !== "yytou") throw new Error(`${key} 不是合法 jta 文件（魔术串 ${JSON.stringify(magic)}）`);
   const width = i16(19);
   const height = i16(21);
+  const interval = i32(7);
   const frameCount = i32(24);
   let offset = 28;
   const frameRects: { x: number; y: number; w: number; h: number; image: number }[] = [];
@@ -67,7 +70,7 @@ export function parseJta(file: string): JtaData {
     h: r.h,
     png: images[r.image] ?? images[0],
   }));
-  const result = { width, height, frames };
+  const result = { width, height, interval, frames };
   jtaCache.set(key, result);
   return result;
 }

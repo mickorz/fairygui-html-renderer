@@ -54,10 +54,11 @@ function renderUbb(s: string, ctx: RenderContext): string {
   return s;
 }
 
-export function renderTextNode(input: NodeRenderInput): string {
+/** text 族共用渲染（richtext/inputtext 见各自薄包装文件，一类型一文件规则） */
+export function renderTextLike(input: NodeRenderInput, kind: "text" | "richtext" | "inputtext"): string {
   const { node, comp, ctx, geo, gearStyle, colorOverride, unsupported } = input;
   // R23：输入框静态呈现：无 text 渲染 prompt（作者自带 UBB 占位样式），password 渲染圆点
-  const isInput = node.type === "inputtext";
+  const isInput = kind === "inputtext";
   const usingPrompt = isInput && !node.attrs.text;
   let attrs = dataAttrs(node, comp.file);
   if (isInput) {
@@ -170,4 +171,9 @@ function renderBitmapText(
   if (!parts.length) return null;
   if (missing > 0) unsupported.push({ nodeId, reason: `BMFont 字体缺 ${missing} 个字符的字形，已跳过` });
   return `<span style="display:inline-flex">${parts.join("")}</span>`;
+}
+
+// text 节点（GTextField）：普通文本
+export function renderTextNode(input: NodeRenderInput): string {
+  return renderTextLike(input, "text");
 }

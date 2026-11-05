@@ -131,6 +131,7 @@ export function buildScene(comp: ParsedComponent, opts: SceneOptions, ctx?: Buil
     const childKeyPrefix = `${copy.stableKey}~${opts.pkg.id}.${childResId}`;
     copy.childComp = {
       file: childFile,
+      pkg: opts.pkg,
       comp: buildScene(getComponent(childFile), opts, {
         stack: [...fullStack, childFile],
         parentPath: copy.instancePath,
@@ -173,6 +174,7 @@ function expandLoaderComponent(
   const childResId = resourceIdOf(childPkg, childFile) ?? path.basename(childFile, ".xml");
   copy.childComp = {
     file: childFile,
+    pkg: childPkg,
     comp: buildScene(getComponent(childFile), { pkg: childPkg, root: opts.root }, {
       stack: [...stack, childFile],
       parentPath: `${copy.instancePath}`,
@@ -206,7 +208,8 @@ function injectExtensionProps(copy: ParsedNode, opts: SceneOptions, stack: strin
     applyIcon(child, icon, opts, globalIndexOf(opts.root), stack);
   }
   // Button 专属语义（button-node 分支的数据层）：checked/titleColor/titleFontSize
-  if ((props?.Button || childExt === "Button") && Object.keys(merged).length) injectButtonProps(child, merged);
+  // Button/Label/ComboBox 共用 title 系属性注入（OpenFairy：Label 仅 title/titleIcon/titleColor/titleFontSize）
+  if ((props?.Button || (childExt && ["Button", "ComboBox", "Label"].includes(childExt))) && Object.keys(merged).length) injectButtonProps(child, merged);
   // ComboBox：选项静态化（selectedIndex 缺省 0，title 取首项；下拉弹层属运行时不渲染）
   if (childExt === "ComboBox") {
     const item = copy.extensionItems?.[0];
@@ -218,7 +221,7 @@ function injectExtensionProps(copy: ParsedNode, opts: SceneOptions, stack: strin
   }
   // ProgressBar/Slider：值填充静态化（titleType 四格式 + bar/bar_v 宽高按 percent 缩放，reverse 反向）
   if (childExt === "ProgressBar" || childExt === "Slider") {
-    injectProgressProps(child, merged);
+    injectProgressProps(child, merged, copy.childComp?.pkg);
   }
 }
 
@@ -230,7 +233,18 @@ function injectExtensionProps(copy: ParsedNode, opts: SceneOptions, stack: strin
  * - bar_v（name="bar_v"）同理纵向（y 向下与 CSS 同向，reverse 时从底向上填充）
  * - Slider 的 grip 保持设计位（OpenFairy 烘焙不动 grip，运行时拖动才摆位）
  */
-function injectProgressProps(child: import("../parser/component-parser.js").ParsedComponent, props: Record<string, string>): void {
+/** 树形列表单元格静态化（GTree/CreateCell 语义缩略版，见 expandList） */
+function applyTreeCell(scene: import("../parser/component-parser.js").ParsedComponent, indentW: number, isFolder: boolean): void {
+  for (const n of scene.nodes) {
+    if (n.name === "indent" && n.size) n.size = [indentW, n.size[1]];
+  }
+  const leaf = scene.controllers.find((c) => c.name === "leaf");
+  if (leaf) leaf.selected = leaf.pageIds[isFolder ? 0 : 1] ?? leaf.selected;
+  const expanded = scene.controllers.find((c) => c.name === "expanded");
+  if (expanded) expanded.selected = expanded.pageIds[1] ?? expanded.selected;
+}
+
+function injectProgressProps(child: import("../parser/component-parser.js").ParsedComponent, props: Record<string, string>, pkg?: import("../parser/package-parser.js").FairyPackage): void {
   const num = (k: string, d: number) => (props[k] !== undefined && Number.isFinite(Number(props[k])) ? Number(props[k]) : d);
   const value = num("value", 50);
   const max = num("max", 100);
@@ -242,26 +256,49 @@ function injectProgressProps(child: import("../parser/component-parser.js").Pars
     : fmt === "value" ? `${Math.round(value)}`
     : fmt === "max" ? `${Math.round(max)}`
     : `${Math.floor(percent * 100)}%`;
+  // grip 设计位与 bar 设计右/下边（relation right-right / bottom-bottom 联动的基准）
+  const grip = child.nodes.find((n) => n.name === "grip");
+  // bar/bar_v 可能是不带 size 的 image（尺寸取资源原生宽高，Demo_Slider/Slider1 即此形态）
+  const effSize = (n: import("../parser/component-parser.js").ParsedNode): [number, number] | undefined => {
+    if (n.size) return n.size;
+    const res = n.src ? pkg?.byId(n.src) : undefined;
+    if (res && res.kind === "image" && res.width && res.height) return [res.width, res.height];
+    return undefined;
+  };
+  const barNode = child.nodes.find((n) => n.name === "bar");
+  const barVNode = child.nodes.find((n) => n.name === "bar_v");
+  const barDes = barNode ? effSize(barNode) : undefined;
+  const barVDes = barVNode ? effSize(barVNode) : undefined;
+  const barDesRight = barNode && barDes ? barNode.xy[0] + barDes[0] : 0;
+  const barVDesBottom = barVNode && barVDes ? barVNode.xy[1] + barVDes[1] : 0;
+  let shiftX = 0;
+  let shiftY = 0;
   for (const n of child.nodes) {
     if (n.name === "title" && n.type === "text") {
       n.attrs = { ...n.attrs, text: titleText };
-    } else if (n.name === "bar" && (n.attrs.fillMethod || n.size)) {
+    } else if (n.name === "bar" && (n.attrs.fillMethod || effSize(n))) {
       // SetFillAmount 路径（bar 自带 fillMethod，如 CircleProgress radial360 圆环）：改 fillAmount 而非缩宽（OpenFairy 语义）
       if (n.attrs.fillMethod) {
         n.attrs = { ...n.attrs, fillAmount: String(Math.round(percent * 100)) };
         continue;
       }
-      const w = Math.round((n.size ?? [0, 0])[0] * percent);
-      const x = props.reverse === "true" ? n.xy[0] + ((n.size ?? [0, 0])[0] - w) : n.xy[0];
-      n.size = [w, (n.size ?? [0, 0])[1]];
+      const des = effSize(n)!;
+      const w = Math.round(des[0] * percent);
+      const x = props.reverse === "true" ? n.xy[0] + (des[0] - w) : n.xy[0];
+      n.size = [w, des[1]];
       n.xy = [x, n.xy[1]];
-    } else if (n.name === "bar_v" && n.size) {
-      const h = Math.round(n.size[1] * percent);
-      const y = props.reverse === "true" ? n.xy[1] + (n.size[1] - h) : n.xy[1];
-      n.size = [n.size[0], h];
+      // 原版 GSlider.Update 只改 bar 尺寸不移 grip；grip 跟随靠单元格里声明的 relation（right-right）联动
+      shiftX = (x + w) - barDesRight;
+    } else if (n.name === "bar_v" && effSize(n)) {
+      const des = effSize(n)!;
+      const h = Math.round(des[1] * percent);
+      const y = props.reverse === "true" ? n.xy[1] + (des[1] - h) : n.xy[1];
+      n.size = [des[0], h];
       n.xy = [n.xy[0], y];
+      shiftY = (y + h) - barVDesBottom;
     }
   }
+  if (grip && (shiftX || shiftY)) grip.xy = [grip.xy[0] + shiftX, grip.xy[1] + shiftY];
 }
 
 /**
@@ -336,6 +373,13 @@ function expandList(copy: ParsedNode, opts: SceneOptions, ctx: BuildContext): vo
     const a = copy.items?.[i] ?? {};
     if (a.title !== undefined) applyTitle(scene, a.title);
     if (a.icon !== undefined) applyIcon(scene, a.icon, opts, index, ctx.stack);
+    // 树形列表（FairyGUI treeView="true" + item level/isFolder，实测 CC-Default TreeView/Main.xml）：
+    // indent 子宽 = level * indent（GTree.CreateCell: indent.width=(level-1)*indent，XML level 从 0 起）；
+    // leaf 控制器 isFolder?0:1（非叶子隐藏 expandButton）；expanded 固定 1（静态全展开，单元格默认页即 1）
+    if (copy.attrs.treeView === "true") {
+      const level = Number(a.level ?? 0) || 0;
+      applyTreeCell(scene, level * (Number(copy.attrs.indent ?? 0) || 0), a.isFolder === "true");
+    }
     copy.listItems.push({ index: i, pkg: itemPkg, scene });
   }
 }

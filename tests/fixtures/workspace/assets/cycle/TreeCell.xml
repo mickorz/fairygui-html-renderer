@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="120,20" extention="Button">
+  <controller name="button" pages="0,up,1,down" selected="0"/>
+  <controller name="expanded" pages="0,,1," selected="1"/>
+  <controller name="leaf" pages="0,,1," selected="0"/>
+  <displayList>
+    <graph id="n0" name="indent" xy="0,0" size="10,20" type="rect"/>
+    <loader id="n1" name="icon" xy="12,0" size="16,16" url=""/>
+    <text id="n2" name="title" xy="30,0" size="80,20" text="Title" fontSize="12"/>
+  </displayList>
+  <Button mode="Radio"/>
+</component>

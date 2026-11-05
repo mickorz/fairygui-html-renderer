@@ -4,6 +4,9 @@ import { selectorScript } from "../selection/component-selector.js";
 import { resolveGear } from "./gear.js";
 import { renderImageNode } from "./nodes/image-node.js";
 import { renderTextNode } from "./nodes/text-node.js";
+import { renderRichTextNode } from "./nodes/richtext-node.js";
+import { renderInputTextNode } from "./nodes/inputtext-node.js";
+import { renderGroupNode } from "./nodes/group-node.js";
 import { renderGraphNode } from "./nodes/graph-node.js";
 import { renderComponentNode } from "./nodes/component-node.js";
 import { renderListNode } from "./nodes/list-node.js";
@@ -26,11 +29,11 @@ export interface RenderOptions {
 /** 节点类型 -> 渲染器注册表（新增类型：在 nodes/ 加文件并在此注册） */
 const RENDERERS: Record<string, NodeRenderer> = {
   image: renderImageNode,
-  text: renderTextNode,
-  richtext: renderTextNode, // R13：richtext 复用 text 渲染（ubb 属性驱动富文本映射）
-  inputtext: renderTextNode, // R23：输入框静态呈现（text/prompt/password）
+  text: renderTextNode, // GTextField
+  richtext: renderRichTextNode, // GRichTextField（R13：ubb 属性驱动富文本映射）
+  inputtext: renderInputTextNode, // GTextInput（R23：静态呈现 text/prompt/password）
   graph: renderGraphNode,
-  group: () => "", // R21：group 无视觉（成员靠 group 属性引用，已各自渲染）
+  group: renderGroupNode, // GGroup（R21：无视觉，成员靠 group 属性引用，已各自渲染）
   component: renderComponentNode,
   list: renderListNode,
   loader: renderLoaderNode,
@@ -98,8 +101,12 @@ export function renderHtml(
 <title>${esc(path.basename(comp.file))} - fairygui-html-renderer</title>
 <style>
 body { background:#2b2b2b; margin:0; padding:${bare ? 0 : 16}px; font-family:sans-serif; }
-.fgui-stage { position:relative; background:#5a5a5a; overflow:hidden; }
+.fgui-stage { position:relative; background:#5a5a5a; overflow:${comp.overflow === "scroll" ? "auto" : "hidden"}; }
 .fgui-node { position:absolute; box-sizing:border-box; }
+/* 可滚容器滚动条可见化（N1）：Chrome 覆盖式滚动条默认静止时不显示 */
+.fgui-stage::-webkit-scrollbar, .fgui-node::-webkit-scrollbar { width:12px; height:12px; }
+.fgui-stage::-webkit-scrollbar-thumb, .fgui-node::-webkit-scrollbar-thumb { background:#8a8a8a; border-radius:6px; }
+.fgui-stage::-webkit-scrollbar-track, .fgui-node::-webkit-scrollbar-track { background:#3c3c3c; }
 .fgui-selected { outline:2px solid #ffd666 !important; box-shadow:0 0 10px #ffd666 !important; z-index:9999; }
 #fgui-info { position:fixed; left:0; top:0; right:0; background:rgba(0,0,0,.78); color:#8ee6ff; padding:6px 12px; font-size:12px; z-index:10000; }
 .unsupported-list { position:fixed; left:0; bottom:0; right:0; background:rgba(0,0,0,.78); color:#ffd666; padding:6px 12px; font-size:12px; max-height:120px; overflow:auto; }
@@ -109,7 +116,7 @@ body { background:#2b2b2b; margin:0; padding:${bare ? 0 : 16}px; font-family:san
 ${defs}
 ${bare ? "" : '<div id="fgui-info">点击画布中的组件查看定位信息</div>'}
 ${listHtml}
-<div class="fgui-stage" style="width:${comp.size[0]}px;height:${comp.size[1]}px">
+<div class="fgui-stage" style="width:${comp.size[0]}px;height:${comp.size[1]}px${comp.overflow === "scroll" ? ";overflow:auto" : ""}">
     ${inner}
 </div>
 ${bare ? "" : `<script>${selectorScript()}</script>`}
