@@ -5,5 +5,21 @@
     <component id="c_b" name="CycleB.xml" path="/"/>
     <component id="c_c" name="Dup.xml" path="/"/>
     <component id="c_gc" name="GearColorText.xml" path="/"/>
+    <component id="c_cl" name="Clipped.xml" path="/"/>
+    <component id="c_rf" name="RenderFix.xml" path="/"/>
+    <component id="c_p1" name="P1Fix.xml" path="/"/>
+    <component id="c_ov" name="OvChild.xml" path="/"/>
+    <component id="c_si" name="SmallItem.xml" path="/"/>
+    <component id="c_p2" name="P2Fix.xml" path="/"/>
+    <component id="c_p3" name="P3Fix.xml" path="/"/>
+    <component id="c_bi" name="ButtonIcon.xml" path="/"/>
+    <component id="c_cb" name="ComboFix.xml" path="/"/>
+    <component id="c_pf" name="ProgressFix.xml" path="/"/>
+    <component id="c_sl" name="SliderFix.xml" path="/"/>
+    <component id="c_p4" name="P4Fix.xml" path="/"/>
+    <image id="i_a" name="pic.png" path="/" width="61" height="53"/>
+    <movieclip id="m_a" name="anim.jta" path="/"/>
+    <image id="i_b" name="pic.png" path="/" width="61" height="53" scale9grid="10,10,40,30"/>
+    <image id="i_c" name="pic.png" path="/" width="61" height="53" scale="9grid" scale9grid="20,20,20,13"/>
   </resources>
 </packageDescription>

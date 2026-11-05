@@ -8,6 +8,7 @@ import { renderGraphNode } from "./nodes/graph-node.js";
 import { renderComponentNode } from "./nodes/component-node.js";
 import { renderListNode } from "./nodes/list-node.js";
 import { renderLoaderNode } from "./nodes/loader-node.js";
+import { renderJtaNode } from "./nodes/jta-node.js";
 import type { NodeRenderer, RenderContext, UnsupportedItem } from "./types.js";
 import { baseStyle, dataAttrs, esc, tintFilterDef } from "./utils.js";
 
@@ -26,10 +27,14 @@ export interface RenderOptions {
 const RENDERERS: Record<string, NodeRenderer> = {
   image: renderImageNode,
   text: renderTextNode,
+  richtext: renderTextNode, // R13：richtext 复用 text 渲染（ubb 属性驱动富文本映射）
+  inputtext: renderTextNode, // R23：输入框静态呈现（text/prompt/password）
   graph: renderGraphNode,
+  group: () => "", // R21：group 无视觉（成员靠 group 属性引用，已各自渲染）
   component: renderComponentNode,
   list: renderListNode,
   loader: renderLoaderNode,
+  jta: renderJtaNode, // movieclip 序列帧动画：静态渲染单帧
 };
 
 /** 创建持有本次渲染累积状态（未支持清单/染色集合）的渲染闭包 */
@@ -41,8 +46,8 @@ function createRenderChildren(unsupported: UnsupportedItem[], tints: Set<string>
     stack: string[],
     renderChildren: (comp: ParsedComponent, ctx: RenderContext, stack: string[]) => string,
   ): string {
-    const { hidden, geo, colorOverride } = resolveGear(node, comp);
-    const gearStyle = hidden ? "visibility:hidden;" : "";
+    const { hidden, geo, colorOverride, lookStyle } = resolveGear(node, comp);
+    const gearStyle = [hidden ? "visibility:hidden" : "", lookStyle ?? ""].filter(Boolean).join(";") + (hidden || lookStyle ? ";" : "");
 
     if (node.unsupported || !RENDERERS[node.type]) {
       const reason = node.unsupported ?? `节点类型 ${node.type} 未支持`;

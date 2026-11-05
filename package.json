@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "render": "tsx src/poc/render.ts",
-    "serve": "tsx src/server/main.ts",
+    "serve": "tsx watch src/server/main.ts",
     "check": "tsx tests/render-check.ts",
     "check:server": "tsx tests/server-check.ts",
     "check:mcp": "tsx tests/mcp-check.ts",

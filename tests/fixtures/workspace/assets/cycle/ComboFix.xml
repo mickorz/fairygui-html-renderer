@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="100,20" extention="ComboBox">
+  <controller name="button" pages="0,up,1,down,2,over,3,selectedOver"/>
+  <displayList>
+    <graph id="n0" name="bg" xy="0,0" size="100,20" type="rect" fillColor="#ff336699"/>
+    <text id="n4" name="title" xy="2,2" size="78,16" fontSize="12" text=""/>
+  </displayList>
+  <ComboBox/>
+</component>

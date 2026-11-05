@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="40,40">
+  <controller name="c_ov" pages="0,,1,"/>
+  <displayList>
+    <graph id="n1" name="page0Dot" xy="0,0" size="10,10" type="rect" fillColor="#ff0000ff">
+      <gearDisplay controller="c_ov" pages="0"/>
+    </graph>
+    <graph id="n2" name="page1Dot" xy="20,0" size="10,10" type="rect" fillColor="#ff00ff00">
+      <gearDisplay controller="c_ov" pages="1"/>
+    </graph>
+  </displayList>
+</component>

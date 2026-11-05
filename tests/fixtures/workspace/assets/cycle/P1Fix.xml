@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="220,290">
+  <controller name="page" pages="0,,1,,2," homePageType="specific" homePage="2"/>
+  <displayList>
+    <graph id="g1" name="roundedMulti" xy="0,0" size="40,20" type="rect" corner="2,4,6,8" fillColor="#ff00ff00"/>
+    <graph id="g2" name="stroked" xy="50,0" size="40,20" type="rect" lineSize="2" lineColor="#ff666666" fillColor="#fff0f0f0"/>
+    <graph id="g3" name="ellipseStroke" xy="100,0" size="30,30" type="ellipse" lineSize="2" fillColor="#ffffffff"/>
+    <graph id="g4" name="poly" xy="140,0" size="40,40" type="polygon" points="0,40,20,0,40,40" fillColor="#ff0000ff"/>
+    <image id="i1" name="halfImg" src="i_a" xy="0,50" size="61,53" fillMethod="hz" fillOrigin="0" fillAmount="50"/>
+    <image id="i2" name="radialImg" src="i_a" xy="80,50" size="61,53" fillMethod="radial360" fillOrigin="0" fillClockwise="false" fillAmount="25"/>
+    <text id="t1" name="templText" xy="0,120" size="200,20" fontSize="12" vars="true" text="hi {name=world} {} \{esc}"/>
+    <richtext id="r1" name="ubbRich" xy="0,150" size="200,80" fontSize="12" ubb="true" text="[b]bold[/b][color=#FF3300]red[/color][size=16]big[/size][img]ui://test01i_a[/img][url=event:xx]link[/url]"/>
+    <loader id="l1" name="compLoader" xy="0,250" size="30,30" url="ui://test01c_cl"/>
+    <graph id="g5" name="page2Visible" xy="0,225" size="10,10" type="rect" fillColor="#ff00ff00">
+      <gearDisplay controller="page" pages="2"/>
+    </graph>
+    <graph id="g6" name="page0Hidden" xy="15,225" size="10,10" type="rect" fillColor="#ff00ff00">
+      <gearDisplay controller="page" pages="0"/>
+    </graph>
+  </displayList>
+</component>

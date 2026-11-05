@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="120,170">
+  <displayList>
+    <graph id="n1" name="oldEllipse" xy="0,0" size="20,20" type="eclipse" fillColor="#ff3f5b5f"/>
+    <graph id="n2" name="rounded" xy="0,30" size="20,20" type="rect" corner="4" fillColor="#ff00ff00"/>
+    <text id="n3" name="valignText" xy="0,60" size="100,40" text="居中文本" fontSize="12" vAlign="middle" leading="0" letterSpacing="2"/>
+    <loader id="n4" name="iconLoader" xy="0,110" size="50,50" url="ui://test01i_a" fill="scale"/>
+    <component id="n5" name="clipped" src="c_cl" xy="60,110"/>
+  </displayList>
+</component>

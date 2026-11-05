@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="30,30" overflow="hidden">
+  <displayList>
+    <graph id="n1" name="overflowChild" xy="20,20" size="30,30" type="rect" fillColor="#ffff0000"/>
+  </displayList>
+</component>

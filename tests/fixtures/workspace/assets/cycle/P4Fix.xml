@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="220,80">
+  <displayList>
+    <component id="n1" name="combo" xy="0,0" size="100,20" src="c_cb">
+      <ComboBox>
+        <item title="选项A" icon="ui://test01i_b"/>
+        <item title="选项B"/>
+      </ComboBox>
+    </component>
+    <component id="n2" name="prog" xy="0,30" size="100,12" src="c_pf">
+      <ProgressBar value="67" max="100"/>
+    </component>
+    <component id="n3" name="progRev" xy="0,50" size="100,12" src="c_pf">
+      <ProgressBar value="30" max="100" titleType="valueAndmax" reverse="true"/>
+    </component>
+    <component id="n4" name="slider" xy="120,30" size="100,12" src="c_sl">
+      <Slider value="80"/>
+    </component>
+  </displayList>
+</component>

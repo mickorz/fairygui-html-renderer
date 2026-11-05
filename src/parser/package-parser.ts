@@ -42,6 +42,8 @@ export interface OtherResource {
   name: string;
   file: string;
   path: string;
+  /** font 专用：图集变体 BMFont 的图集 image 资源 id（package.xml texture 属性） */
+  texture?: string;
 }
 
 export type Resource = ImageResource | ComponentResource | OtherResource;
@@ -85,7 +87,7 @@ export function loadPackage(pkgDir: string): FairyPackage {
       } else if (tag === "component") {
         resources.push({ kind: "component", id: e.id, name: e.name, path: e.path ?? "/", file, exported: e.exported === "true" });
       } else {
-        resources.push({ kind: "other", type: tag, id: e.id, name: e.name, path: e.path ?? "/", file });
+        resources.push({ kind: "other", type: tag, id: e.id, name: e.name, path: e.path ?? "/", file, texture: e.texture });
       }
     }
   }
