@@ -106,6 +106,13 @@ projectData 为唯一编辑态；重开时 projectData 恢复 + 与磁盘重导�
    避；若真实用户高频交替「滚动区拖动 → 画布拖动」出现漂移，再评估在 drag 结束事件补全清理。
 5. **P1 候选**（执行计划已列）：多页/多画布、资源上传路由、撤销历史持久化、组件库面板等。
 
+### P0 收尾补记（2026-11-05，评审后执行）
+
+- **Preview / Export 前端接线已完成**：预览 = GrapesJS 内建 preview 命令（面板隐藏 + 画布铺满 + 左上角关闭返回）；导出 = 保存后调服务端 convert 路由（PKG_EXISTS 提示不覆盖），完成后状态栏给出回读预览链接（vite 新增 `/view` 代理走同源）。真机验证：demo-popup 会话导出 10 节点跳过 0、回读链接 200、预览命令激活。
+- **分支同步已完成**：main（阶段 H～L，15 提交）合入 editor-dev（merge 2a6ca28，仅 CLAUDE.md 两边新增章节两存冲突）；合并后 tsc / editor:build / check:e2e 九套件（含 Renderer 阶段 H～L 回归）全绿。
+- 评审意见归档：`dev-docs/meeting/2026-11-05-UI编辑器P0-评审意见.md`。
+- 评审遗留待办：T17 真实 FairyGUI 编辑器人工验收（用户实机）；真实 AI HTML 样本 3～5 个补入 `tests/fixtures/editor/`（等素材）。
+
 ## 六、经验索引
 
 - `dev-docs/experience/grapesjs-componentFirst-inline-style-override.md`
