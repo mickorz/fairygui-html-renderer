@@ -16,6 +16,11 @@ export default defineConfig({
         target: "http://localhost:" + (process.env.EDITOR_API_PORT || "7788"),
         changeOrigin: true,
       },
+      // /view（Renderer 回读预览，convert 完成后的链接走同源）
+      "/view": {
+        target: "http://localhost:" + (process.env.EDITOR_API_PORT || "7788"),
+        changeOrigin: true,
+      },
     },
   },
   resolve: {

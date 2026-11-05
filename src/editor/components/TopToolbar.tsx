@@ -1,5 +1,5 @@
-// 顶部工具栏（Task 5）：Zoom In/Out/Fit + Undo/Redo + 画布缩放百分比 + 保存（会话 PUT）
-// Export/Preview 为 Task 6 接线占位，当前禁用
+// 顶部工具栏：Zoom In/Out/Fit + Undo/Redo + 画布缩放百分比 + 保存（会话 PUT）
+// + 预览（GrapesJS 内建 preview 命令）+ 导出（服务端 convert 路由，P0 收尾接线）
 import { useCallback, useState, type ReactElement } from "react";
 import { getEditor } from "../grapes/editor-instance";
 import { DEFAULT_CANVAS } from "../grapes/canvas-config";
@@ -8,7 +8,19 @@ const ZOOM_STEP = 10;
 const ZOOM_MIN = 10;
 const ZOOM_MAX = 300;
 
-export default function TopToolbar({ onSave, saveEnabled }: { onSave: () => void; saveEnabled: boolean }): ReactElement {
+export default function TopToolbar({
+  onSave,
+  saveEnabled,
+  onPreview,
+  onExport,
+  exportEnabled,
+}: {
+  onSave: () => void;
+  saveEnabled: boolean;
+  onPreview: () => void;
+  onExport: () => void;
+  exportEnabled: boolean;
+}): ReactElement {
   const [zoom, setZoom] = useState(100);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
@@ -71,13 +83,13 @@ export default function TopToolbar({ onSave, saveEnabled }: { onSave: () => void
         适应
       </button>
       <span className="flex-1" />
-      <button className={btn} disabled title="Task 5 接线">
+      <button className={btn} onClick={onPreview} title="全屏预览（Esc 关闭）">
         预览
       </button>
       <button className={btn} disabled={!saveEnabled} onClick={onSave} title="Ctrl+S">
         保存
       </button>
-      <button className={btn} disabled title="Task 5/6 接线">
+      <button className={btn} disabled={!exportEnabled} onClick={onExport} title="保存并转换为 FairyGUI 包">
         导出
       </button>
     </div>

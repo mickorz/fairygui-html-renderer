@@ -20,6 +20,7 @@ export default function App(): ReactElement {
   const canvasHostRef = useRef<HTMLElement>(null);
   const [session, setSession] = useState<SessionState>({ status: "none" });
   const [saveMessage, setSaveMessage] = useState("");
+  const [convertMessage, setConvertMessage] = useState("");
   const sessionRef = useRef<SessionState>({ status: "none" });
   sessionRef.current = session;
 
@@ -79,6 +80,40 @@ export default function App(): ReactElement {
     }
   }, []);
 
+  // 预览：GrapesJS 内建 preview 命令（全屏 iframe，右上角关闭返回）
+  const doPreview = useCallback(() => {
+    getEditor().runCommand("preview");
+  }, []);
+
+  // 导出：先保存（convert 读磁盘保存态），再调服务端 convert 路由生成 FairyGUI 包
+  const doExport = useCallback(async () => {
+    const s = sessionRef.current;
+    if (s.status !== "ok" && s.status !== "inconsistent") return;
+    setConvertMessage("保存中...");
+    await doSave();
+    setConvertMessage("转换中...");
+    const pkgName = s.id + "-pkg";
+    try {
+      const r = await fetch("/api/editor/session/" + encodeURIComponent(s.id) + "/convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ outPkgName: pkgName }),
+      });
+      const d = (await r.json()) as { error?: { code?: string }; pkgId?: string; report?: { nodeTotal: number; skippedCount?: number } };
+      if (r.status === 400 && d.error?.code === "PKG_EXISTS") {
+        setConvertMessage("包已存在（不覆盖）：" + pkgName);
+        return;
+      }
+      if (!r.ok) {
+        setConvertMessage("转换失败：" + (d.error?.code ?? r.status));
+        return;
+      }
+      setConvertMessage("已转换 " + pkgName + "（" + (d.report?.nodeTotal ?? "?") + " 节点，跳过 " + (d.report?.skippedCount ?? 0) + "）");
+    } catch (e) {
+      setConvertMessage("转换失败：" + String(e));
+    }
+  }, [doSave]);
+
   // 「以恢复态为准并重新保存」：清不一致标记后保存
   const keepRestoredAndSave = useCallback(async () => {
     const s = sessionRef.current;
@@ -120,6 +155,9 @@ export default function App(): ReactElement {
         <TopToolbar
           onSave={doSave}
           saveEnabled={session.status === "ok" || session.status === "inconsistent"}
+          onPreview={doPreview}
+          onExport={() => void doExport()}
+          exportEnabled={session.status === "ok" || session.status === "inconsistent"}
         />
       </header>
       {banner}
@@ -135,6 +173,21 @@ export default function App(): ReactElement {
         {saveMessage ? (
           <span className="text-[#e8b34b]" data-testid="save-message">
             {saveMessage}
+          </span>
+        ) : null}
+        {convertMessage ? (
+          <span className="text-[#7ac0e8]" data-testid="convert-message">
+            {convertMessage}
+            {convertMessage.startsWith("已转换") && (session.status === "ok" || session.status === "inconsistent") ? (
+              <a
+                className="ml-2 underline text-[#9ad0f0]"
+                href={"/view?component=" + encodeURIComponent(session.id + "-pkg") + "/Root.xml&bare=1"}
+                target="_blank"
+                rel="noreferrer"
+              >
+                回读预览
+              </a>
+            ) : null}
           </span>
         ) : null}
       </footer>
