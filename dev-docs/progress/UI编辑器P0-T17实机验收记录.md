@@ -28,6 +28,25 @@
 - 六项全过：本文件标注「全部通过」+ 日期，P0 正式关闭，进入 P1 规划（真实 AI 样本回归库 → Semantic Layer 方案）。
 - 任一失败：记录现象 + 错误截图 / 组件树截图 + 修改后的导出 XML，交回开发侧定位 Converter 问题。
 
+## 已知输出形态问题（P1 待办，接受当前形态）
+
+**按钮不是 GButton，而是 graph（底）+ text（字）两个独立对象。**
+
+- 根因：HTML 原稿无按钮语义（两个普通 div），Converter 只做结构映射（`image/text/graph/container/list`，唯一语义推断是 ≥3 同构兄弟折叠 GList），无 button 分支；
+- 影响：显示正确、可编辑，但丢失 GButton 语义（up/over/down 状态切换、点击、title 绑定、Controller 驱动）；
+- 结论：**属 P1 Semantic Layer 范围，非 P0 转换错误，接受当前形态进入 T17**（用户决定：先完成 T17，再做语义闭环）。
+
+### P1 第一个可交付：GButton 最小语义闭环
+
+```
+HTML 节点标注 data-fgui-type="GButton" / data-fgui-title="确认"
+  -> Adapter 保留并规范化 data-fgui-* 属性
+  -> 编辑器属性面板显示 FairyGUI 属性（title/icon/状态）
+  -> Converter 加 button 分支：输出 <button>（title + 底图引用 + 状态），不再产出 graph+text 两个裸对象
+```
+
+三处改动（Adapter / Converter button 分支 / 属性面板语义字段），比完整 Semantic Layer 小，直接解决「导出 UI 不可用」硬伤。**执行时机：T17 验收完成后。**
+
 ## 参考
 
 - 静态检查结论：`dev-docs/meeting/2026-11-05-T17静态检查结论.md`
