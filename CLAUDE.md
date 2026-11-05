@@ -66,6 +66,22 @@
   早期靠猜曾误判 gearColor「编码不匹配」。
 - 注意：该仓库无 LICENSE，只参考解析行为与格式知识，禁止复制源码。
 
+## Git Worktree 分支开发：端口隔离
+
+本仓库存在 **git worktree 多分支并行开发**（如 `editor-dev` 分支与主分支同时起服务）。同一台机器上多个 worktree 的服务端口会互相冲突，规则：
+
+1. **主分支端口约定**：前端 Vite **5173**、后端 serve **7788**；worktree 开发分支不得占用。
+2. **worktree 分支一律用独立端口**：前端 Vite 默认 **5174**（`EDITOR_VITE_PORT` 可覆盖）、后端 serve 用 `PORT` 环境变量指定（如 `PORT=7789 npm run serve`）。
+3. **前端启动时必须把代理指向同 worktree 的后端端口**：`EDITOR_API_PORT=7789 npm run editor`（否则 `/api` 会代理到主分支的 7788，读写错工程）。
+4. **启动前先查占用**：`netstat -ano | grep -E ":(5173|5174|7788|7789)" | grep LISTEN`，被占则换端口，不要复用主分支端口。
+
+启动示例（worktree 分支完整一套）：
+
+```bash
+PORT=7789 npm run serve &                        # 后端 7789
+EDITOR_API_PORT=7789 npm run editor &            # 前端 5174，代理指向 7789
+```
+
 ## 示例目录：`dev-examples/` —— 开发期沙盒
 
 1. 开发中的脚本试验、联调配置与临时输出一律放 `dev-examples/`（一主题一子目录，kebab-case），
