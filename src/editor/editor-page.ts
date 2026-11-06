@@ -45,6 +45,14 @@ body { font-family:sans-serif; background:#222; color:#ddd; display:flex; flex-d
 .pane-search input { width:100%; padding:4px 6px; background:#1e1e1e; color:#ddd; border:1px solid #555; border-radius:3px; font-size:12px; }
 
 #canvas-col { flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; }
+#rel-bar { display:none; flex:none; padding:6px 10px; background:#262626; border-bottom:1px solid #444; max-height:130px; overflow:auto; }
+#rel-bar .title { color:#8ee6ff; margin-bottom:3px; }
+#rel-bar .group { margin:3px 0; }
+#rel-bar .label { color:#888; display:inline-block; width:56px; }
+#rel-bar a.chip { display:inline-block; background:#333; color:#ffd666; border:1px solid #555; border-radius:3px; padding:1px 7px; margin:2px 4px 2px 0; cursor:pointer; text-decoration:none; font-size:11px; }
+#rel-bar a.chip small { color:#888; }
+#rel-bar .cycle { color:#ff9d66; margin-top:3px; }
+#rel-bar .none { color:#666; }
 #viewport { flex:1; min-height:0; overflow:auto; background:#191919; display:flex; }
 #frame-box { margin:auto; flex:none; }
 #frame { border:none; display:block; background:#1e1e1e; }
@@ -124,6 +132,7 @@ body.dragging iframe { pointer-events:none; }
   </div>
   <div id="vsplit1"></div>
   <div id="canvas-col">
+    <div id="rel-bar"></div>
     <div id="viewport"><div id="frame-box"><iframe id="frame"></iframe></div></div>
   </div>
   <div id="vsplit2"></div>

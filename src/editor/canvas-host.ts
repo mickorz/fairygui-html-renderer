@@ -12,6 +12,7 @@ export function canvasHostScript(): string {
 (function () {
   var frame = document.getElementById("frame");
   var frameBox = document.getElementById("frame-box");
+  var relBar = document.getElementById("rel-bar");
   var lastDocRef = null; // 守卫用 doc 对象身份：加载中（null）与加载完成（新对象）是不同状态
   var canvasReady = false; // iframe 文档就绪（CANVAS_READY 后才可发消息）
   var ZOOM_STEP = 1.25;
@@ -85,11 +86,50 @@ export function canvasHostScript(): string {
     }
   });
 
+  // ---- 组件关系条（S3 接入）：/api/component-graph 邻域 + 芯片跳转 ----
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function chipHtml(id, name, kind, jump) {
+    return '<a class="chip" data-id="' + esc(id) + '" data-file="' + esc(jump) + '" href="#">' +
+      esc(name) + ' <small>' + kind + "·" + esc(jump) + '</small></a>';
+  }
+  function loadRel() {
+    var id = ED.doc && ED.doc.packageId && ED.doc.resourceId ? ED.doc.packageId + "." + ED.doc.resourceId : null;
+    if (!id) {
+      relBar.style.display = "block";
+      relBar.innerHTML = '<span class="none">当前文档无资源 id</span>';
+      return;
+    }
+    relBar.style.display = "block";
+    relBar.innerHTML = '<div class="title">组件关系加载中...</div>';
+    fetch("/api/component-graph?key=" + encodeURIComponent(id)).then(function (r) { return r.json(); }).then(function (nb) {
+      if (!ED.doc || !ED.sel && !nb.node) { /* 空邻域也展示 */ }
+      if (!nb.node) { relBar.innerHTML = '<span class="none">组件 ' + esc(id) + ' 无图节点</span>'; return; }
+      // 引用目标 id -> 展示名（file 去包前缀）；点击跳转对应组件文件
+      var html = '<div class="title">组件关系：' + esc(nb.node.name) + ' <span class="none">(' + esc(nb.node.file) + ')</span></div>';
+      html += '<div class="group"><span class="label">引用了</span>' + (nb.uses.length ? nb.uses.map(function (e) { return chipHtml(e.to, e.otherName, e.edge, e.otherFile); }).join("") : '<span class="none">无</span>') + '</div>';
+      html += '<div class="group"><span class="label">被引用</span>' + (nb.usedBy.length ? nb.usedBy.map(function (e) { return chipHtml(e.from, e.otherName, e.edge, e.otherFile); }).join("") : '<span class="none">无（入口组件）</span>') + '</div>';
+      if (nb.inCycle && nb.inCycle.length) html += '<div class="cycle">警告：该组件在图级引用环中 [' + nb.inCycle.map(esc).join(", ") + ']</div>';
+      relBar.innerHTML = html;
+    }).catch(function () {
+      relBar.innerHTML = '<div class="title">组件关系 <span class="none">加载失败</span></div>';
+    });
+  }
+  // 芯片点击：跳转对应组件（file 为工程相对路径，直接 edOpenComponent）
+  relBar.addEventListener("click", function (e) {
+    var a = e.target.closest("a.chip");
+    if (!a) return;
+    e.preventDefault();
+    if (a.dataset.file) edOpenComponent(a.dataset.file);
+  });
+
   edSubscribe(function () {
     if (ED.doc !== lastDocRef) { // 新文档（含加载中）：画布需重载，就绪状态重置
       lastDocRef = ED.doc;
       canvasReady = false;
       if (!ED.file || !ED.doc || ED.doc.error) {
+        relBar.style.display = "none";
         frame.src = "about:blank";
         frameBox.style.width = "0";
         frameBox.style.height = "0";
@@ -97,6 +137,7 @@ export function canvasHostScript(): string {
       }
       applyZoom();
       frame.src = "/view?component=" + encodeURIComponent(ED.file) + "&bare=1&docid=" + encodeURIComponent(ED.docId);
+      loadRel();
       return;
     }
     // 同文档内：缩放变化 + 选择变化（树来源 -> 转发画布高亮）

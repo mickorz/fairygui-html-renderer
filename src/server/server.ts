@@ -5,6 +5,8 @@ import { loadPackage } from "../parser/package-parser.js";
 import { getComponent, buildScene, clearCache } from "../scene/scene-builder.js";
 import { listPackages, searchWorkspace, listComponents } from "../scene/workspace.js";
 import { toSceneJson } from "../scene/scene-json.js";
+import { buildUiAssetIndex, searchUiAssets, findComponentUsages } from "../scene/ui-asset-index.js";
+import { buildComponentGraph, classNeighborhood, graphIdOf } from "../scene/component-graph.js";
 import { renderHtml } from "../renderer/html-renderer.js";
 import { editorPageHtml } from "../editor/editor-page.js";
 
@@ -103,6 +105,32 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, root: 
     const q = (u.searchParams.get("q") ?? "").trim().toLowerCase();
     if (!q) return json(res, 200, { query: q, total: 0, truncated: false, results: [] });
     return json(res, 200, searchWorkspace(root, q));
+  }
+
+  // UI 资产索引检索（S2）：q = 文件路径 / 组件名 / 包名 / pkgId.resId
+  if (p === "/api/ui-assets") {
+    const q = u.searchParams.get("q") ?? "";
+    const idx = buildUiAssetIndex(root);
+    return json(res, 200, { query: q, entries: searchUiAssets(idx, q), stats: idx.stats, parseFailures: idx.parseFailures });
+  }
+
+  // 反向引用查询（S2）：谁引用了这个组件
+  if (p === "/api/ui-assets/usage") {
+    const id = u.searchParams.get("id") ?? "";
+    const file = u.searchParams.get("file") ?? "";
+    if (!id && !file) return json(res, 400, { error: "缺少 id 或 file 参数" });
+    const idx = buildUiAssetIndex(root);
+    return json(res, 200, findComponentUsages(idx, { id: id || undefined, file: file || undefined }));
+  }
+
+  // 组件关系图谱（S3）：不传 key 返回全图，传 key 返回单组件邻域
+  if (p === "/api/component-graph") {
+    const key = u.searchParams.get("key") ?? "";
+    const graph = buildComponentGraph(buildUiAssetIndex(root));
+    if (!key) return json(res, 200, graph);
+    const id = graphIdOf(graph, key);
+    if (!id) return json(res, 404, { error: `组件不存在: ${key}` });
+    return json(res, 200, classNeighborhood(graph, id));
   }
 
   // 包内组件清单

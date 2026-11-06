@@ -1,4 +1,5 @@
 import path from "node:path";
+import { toolSearchUiAssets, toolFindComponentUsages, toolGetComponentGraph } from "./tools.js";
 import { createInterface } from "node:readline";
 import { toolListComponents, toolLocate, toolRender, toolScreenshot } from "./tools.js";
 
@@ -34,6 +35,36 @@ const TOOLS = [
       type: "object",
       properties: { key: { type: "string", description: "locate_component 返回的稳定键 key" } },
       required: ["key"],
+    },
+  },
+  {
+    name: "search_ui_assets",
+    description: "全工程 UI 资产索引检索：组件元数据（包/资源 id/尺寸/节点数）+ 引用边（引用了哪些组件/图片）+ 解析失败诊断；q = 文件路径/组件名/包名/pkgId.resId",
+    inputSchema: {
+      type: "object",
+      properties: { q: { type: "string", description: "搜索关键词（空串返回全量）" } },
+      required: [],
+    },
+  },
+  {
+    name: "find_component_usages",
+    description: "反向引用查询：谁引用了这个组件（引用方文件/资源 id/引用边类型/节点 id）；id 与 file 二选一",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "pkgId.resId（如 9leh0eyf.zd9g4e）" },
+        file: { type: "string", description: "工程相对路径（如 Basics/Demo_Button.xml）" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "get_component_graph",
+    description: "组件关系图谱：不传 key 返回全图（节点/边/Tarjan 环/枢纽排行/未引用清单），传 key 返回单组件邻域（引用了/被引用/环成员）",
+    inputSchema: {
+      type: "object",
+      properties: { key: { type: "string", description: "pkgId.resId 或工程相对路径" } },
+      required: [],
     },
   },
   {
@@ -74,6 +105,12 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
       return toolLocate(ctx, { query: String(args.query ?? "") });
     case "render_component":
       return toolRender(ctx, { key: String(args.key ?? "") });
+    case "search_ui_assets":
+      return toolSearchUiAssets(ctx, { q: String(args.q ?? "") });
+    case "find_component_usages":
+      return toolFindComponentUsages(ctx, { id: args.id ? String(args.id) : undefined, file: args.file ? String(args.file) : undefined });
+    case "get_component_graph":
+      return toolGetComponentGraph(ctx, { key: args.key ? String(args.key) : undefined });
     case "screenshot_component":
       return toolScreenshot(ctx, {
         key: String(args.key ?? ""),

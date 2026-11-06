@@ -39,6 +39,7 @@ export function toSceneJson(scene: ParsedComponent, pkg: FairyPackage, opts: Sce
   return {
     file: opts.relativize ? opts.relativize(scene.file) : scene.file,
     packageId: pkg.id,
+    resourceId: resourceIdOf(pkg, scene.file) ?? null,
     size: scene.size,
     extension: scene.extension ?? null,
     controllers: scene.controllers,

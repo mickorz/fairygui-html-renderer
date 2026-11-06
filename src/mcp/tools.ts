@@ -1,3 +1,5 @@
+import { buildUiAssetIndex, searchUiAssets, findComponentUsages } from "../scene/ui-asset-index.js";
+import { buildComponentGraph, classNeighborhood, graphIdOf } from "../scene/component-graph.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -138,4 +140,26 @@ export function toolScreenshot(ctx: McpContext, args: { key: string; width?: num
   const pngFile = render.htmlFile.replace(/\.html$/, ".png");
   screenshotUrl(render.url, pngFile, width, height);
   return { ...render, screenshotFile: pngFile, viewport: { width, height } };
+}
+
+// ===== S2/S3/S7：资产索引 / 反向引用 / 组件图谱（与 HTTP /api/ui-assets* 同一服务） =====
+
+export function toolSearchUiAssets(ctx: McpContext, args: { q?: string }): Record<string, unknown> {
+  const idx = buildUiAssetIndex(ctx.rootDir);
+  return { query: args.q ?? "", entries: searchUiAssets(idx, args.q ?? ""), stats: idx.stats, parseFailures: idx.parseFailures };
+}
+
+export function toolFindComponentUsages(ctx: McpContext, args: { id?: string; file?: string }): Record<string, unknown> {
+  if (!args.id && !args.file) return { error: "缺少 id 或 file 参数" };
+  return findComponentUsages(buildUiAssetIndex(ctx.rootDir), { id: args.id, file: args.file }) as unknown as Record<string, unknown>;
+}
+
+export function toolGetComponentGraph(ctx: McpContext, args: { key?: string }): Record<string, unknown> {
+  const graph = buildComponentGraph(buildUiAssetIndex(ctx.rootDir));
+  if (args.key) {
+    const id = graphIdOf(graph, args.key);
+    if (!id) return { error: `组件不存在: ${args.key}` };
+    return classNeighborhood(graph, id) as unknown as Record<string, unknown>;
+  }
+  return graph as unknown as Record<string, unknown>;
 }
