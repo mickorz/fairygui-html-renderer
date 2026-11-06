@@ -156,6 +156,44 @@ try {
   const sEmpty = await get("/api/search?q=zzznope");
   check("无匹配返回空结果", sEmpty.status === 200 && JSON.parse(sEmpty.body).results.length === 0);
 
+  // ===== S5：语义 HTML -> XML 写出路由（POST，只返回文本不落盘） =====
+  {
+    // 取 RenderFix 渲染 HTML，改 n3 文本后写回
+    const view = await get("/view?component=cycle/RenderFix.xml&bare=1");
+    const changed = view.body.replace(/text="%E5%B1%85%E4%B8%AD%E6%96%87%E6%9C%AC"/, 'text="CHANGED"').replace(/(data-fgui-id="n3"[^>]*data-fgui-attrs=')([^']*)'/, (_m0, pre, json) => {
+      const attrs = JSON.parse(json.replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&lt;/g, "<"));
+      attrs.text = "CHANGED";
+      return pre + JSON.stringify(attrs).replace(/&/g, "&amp;").replace(/'/g, "&#39;").replace(/</g, "&lt;") + "'";
+    });
+    const wr = await fetch(base + "/api/xml-write", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ component: "cycle/RenderFix.xml", html: changed }),
+    });
+    const wd = JSON.parse(await wr.text()) as { xml?: string; appliedChanges?: number; error?: string };
+    check(
+      "XML 写出路由（POST：覆盖 n3 text，返回含 CHANGED 的 XML）",
+      wr.status === 200 && wd.appliedChanges === 1 && (wd.xml?.includes("CHANGED") ?? false),
+      JSON.stringify({ status: wr.status, appliedChanges: wd.appliedChanges }),
+    );
+    const bad = await fetch(base + "/api/xml-write", { method: "POST", body: JSON.stringify({ component: "cycle/RenderFix.xml" }) });
+    const badData = JSON.parse(await bad.text()) as { error?: string };
+    check("XML 写出缺 html 返回 400", bad.status === 400 && typeof badData.error === "string");
+  }
+
+  // ===== S4：场景结构 diff 路由 =====
+  {
+    const dr = await get("/api/scene-diff?a=cycle/DiffA.xml&b=cycle/DiffB.xml");
+    const dd = JSON.parse(dr.body) as { stats: { added: number; removed: number; changed: number }; changed: { node: { id: string | null }; changes: { path: string; from: unknown; to: unknown }[] }[] };
+    check(
+      "场景 diff 路由（DiffA->DiffB：added 1/removed 1/changed 3，n1 文本 Hello->World）",
+      dr.status === 200 && dd.stats.added === 1 && dd.stats.removed === 1 && dd.stats.changed === 3
+        && dd.changed.some((c) => c.node.id === "n1" && c.changes.some((ch) => ch.path === "attrs.text" && ch.from === "Hello" && ch.to === "World")),
+    );
+    const dbad = await get("/api/scene-diff?a=cycle/DiffA.xml");
+    check("场景 diff 缺参返回 400", dbad.status === 400);
+  }
+
   // ===== S6：路径守卫加固（符号链接 realpath 复核 + 不存在返回 404） =====
   {
     const { safeResolve } = await import("../src/server/server.js");

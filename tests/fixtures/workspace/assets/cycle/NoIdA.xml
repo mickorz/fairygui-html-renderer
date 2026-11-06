@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="50,20">
+  <displayList>
+    <text name="t1" xy="0,0" size="50,10" text="AAA"/>
+    <text name="t2" xy="0,10" size="50,10" text="BBB"/>
+  </displayList>
+</component>

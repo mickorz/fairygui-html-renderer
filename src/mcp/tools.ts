@@ -1,5 +1,7 @@
 import { buildUiAssetIndex, searchUiAssets, findComponentUsages } from "../scene/ui-asset-index.js";
 import { buildComponentGraph, classNeighborhood, graphIdOf } from "../scene/component-graph.js";
+import { diffScenes } from "../scene/scene-diff.js";
+import { writeComponentXml } from "../writer/xml-writer.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -9,6 +11,7 @@ import type { ParsedComponent, ParsedNode } from "../parser/component-parser.js"
 import { listComponents, listPackages, searchWorkspace } from "../scene/workspace.js";
 import { renderHtml } from "../renderer/html-renderer.js";
 import { screenshotUrl } from "./chrome.js";
+import { safeResolve, findPackageDir } from "../server/server.js";
 
 // MCP 四工具的核心逻辑（阶段 D）：纯函数、与传输层（stdio 协议壳）分离，便于直测
 // 全部只读：render/screenshot 产物写入系统临时目录，不触碰 FairyGUI 工程
@@ -162,4 +165,23 @@ export function toolGetComponentGraph(ctx: McpContext, args: { key?: string }): 
     return classNeighborhood(graph, id) as unknown as Record<string, unknown>;
   }
   return graph as unknown as Record<string, unknown>;
+}
+
+export function toolDiffScenes(ctx: McpContext, args: { a?: string; b?: string }): Record<string, unknown> {
+  if (!args.a || !args.b) return { error: "缺少 a 或 b 参数" };
+  const a = safeResolve(path.join(ctx.rootDir, "assets"), args.a);
+  const b = safeResolve(path.join(ctx.rootDir, "assets"), args.b);
+  if (!a || !b) return { error: `组件不存在或路径越界: ${args.a} / ${args.b}` };
+  const pkgA = loadPackage(findPackageDir(path.dirname(a), path.join(ctx.rootDir, "assets")));
+  const pkgB = loadPackage(findPackageDir(path.dirname(b), path.join(ctx.rootDir, "assets")));
+  const sceneA = buildScene(getComponent(a, { fresh: true }), { pkg: pkgA, root: ctx.rootDir });
+  const sceneB = buildScene(getComponent(b, { fresh: true }), { pkg: pkgB, root: ctx.rootDir });
+  return diffScenes(sceneA, sceneB) as unknown as Record<string, unknown>;
+}
+
+export function toolWriteComponentXml(ctx: McpContext, args: { component?: string; html?: string }): Record<string, unknown> {
+  if (!args.component || !args.html) return { error: "缺少 component 或 html 参数" };
+  const abs = safeResolve(path.join(ctx.rootDir, "assets"), args.component);
+  if (!abs || !abs.endsWith(".xml")) return { error: `组件不存在或路径越界: ${args.component}` };
+  return writeComponentXml(getComponent(abs, { fresh: true }), args.html) as unknown as Record<string, unknown>;
 }

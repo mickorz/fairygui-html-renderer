@@ -11,7 +11,9 @@
     "check:mcp": "tsx tests/mcp-check.ts",
     "mcp": "tsx src/mcp/main.ts",
     "check:convert": "tsx tests/convert-check.ts",
-    "check:assets": "tsx tests/ui-asset-check.ts"
+    "check:assets": "tsx tests/ui-asset-check.ts",
+    "check:diff": "tsx tests/scene-diff-check.ts",
+    "check:writer": "tsx tests/xml-writer-check.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

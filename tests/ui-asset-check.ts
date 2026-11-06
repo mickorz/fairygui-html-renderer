@@ -20,7 +20,7 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures",
 
 // ===== S2：资产索引 =====
 const idx = buildUiAssetIndex(root);
-check("索引：全部组件登记（cycle 包 20 组件）", idx.entries.length === 20);
+check("索引：全部组件登记（cycle 包 22 组件）", idx.entries.length === 22);
 check("索引：无解析失败", idx.parseFailures.length === 0);
 check("索引：基础元数据（P4Fix 尺寸与包 id）", (() => {
   const e = idx.entries.find((x) => x.name === "P4Fix.xml");

@@ -120,7 +120,7 @@ const protocolResult = await new Promise<{ toolCount?: number; locateTotal?: num
 });
 check(
   "stdio 协议冒烟（initialize/tools/list/tools/call）",
-  protocolResult.toolCount === 7 && protocolResult.locateTotal !== undefined && protocolResult.locateTotal > 0,
+  protocolResult.toolCount === 9 && protocolResult.locateTotal !== undefined && protocolResult.locateTotal > 0,
   JSON.stringify(protocolResult),
 );
 child.kill();

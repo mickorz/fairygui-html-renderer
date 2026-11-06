@@ -7,6 +7,8 @@ import { listPackages, searchWorkspace, listComponents } from "../scene/workspac
 import { toSceneJson } from "../scene/scene-json.js";
 import { buildUiAssetIndex, searchUiAssets, findComponentUsages } from "../scene/ui-asset-index.js";
 import { buildComponentGraph, classNeighborhood, graphIdOf } from "../scene/component-graph.js";
+import { diffScenes } from "../scene/scene-diff.js";
+import { writeComponentXml } from "../writer/xml-writer.js";
 import { renderHtml } from "../renderer/html-renderer.js";
 import { editorPageHtml } from "../editor/editor-page.js";
 
@@ -52,6 +54,24 @@ export function safeResolve(root: string, rel: string): string | null {
   return resolved;
 }
 
+function readBody(req: http.IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (c: Buffer) => {
+      size += c.length;
+      if (size > 16 * 1024 * 1024) {
+        reject(new Error("请求体过大（>16MB）"));
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    req.on("error", reject);
+  });
+}
+
 function json(res: http.ServerResponse, status: number, data: unknown): void {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(data));
@@ -62,7 +82,7 @@ function text(res: http.ServerResponse, status: number, body: string, type = "te
   res.end(body);
 }
 
-function findPackageDir(componentFileDir: string, assetsRoot: string): string {
+export function findPackageDir(componentFileDir: string, assetsRoot: string): string {
   let dir = path.normalize(componentFileDir);
   const stop = path.normalize(assetsRoot);
   while (dir.startsWith(stop)) {
@@ -88,9 +108,9 @@ export function createApp(opts: AppOptions): http.Server {
 async function route(req: http.IncomingMessage, res: http.ServerResponse, root: string, assetsRoot: string): Promise<void> {
   const u = new URL(req.url ?? "/", "http://localhost");
   const p = u.pathname;
-  // 场景 B 安全前提：默认只读
-  if (req.method !== "GET" && req.method !== "HEAD") {
-    return text(res, 405, "只读服务，仅支持 GET", "text/plain; charset=utf-8");
+  // 场景 B 安全前提：默认只读；POST 仅限 /api/xml-write（接收 HTML 返回 XML 文本，不落盘）
+  if (req.method !== "GET" && req.method !== "HEAD" && !(req.method === "POST" && p === "/api/xml-write")) {
+    return text(res, 405, "只读服务，仅支持 GET（POST 仅 /api/xml-write，不写文件）", "text/plain; charset=utf-8");
   }
 
   if (p === "/") return text(res, 200, editorPageHtml());
@@ -105,6 +125,45 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, root: 
     const q = (u.searchParams.get("q") ?? "").trim().toLowerCase();
     if (!q) return json(res, 200, { query: q, total: 0, truncated: false, results: [] });
     return json(res, 200, searchWorkspace(root, q));
+  }
+
+  // 语义 HTML -> 组件 XML 写出（S5）：合并写出（属性覆盖 -> 序列化），只返回文本不写文件系统
+  if (p === "/api/xml-write" && req.method === "POST") {
+    const body = await readBody(req);
+    let parsed: { component?: string; html?: string };
+    try {
+      parsed = JSON.parse(body) as { component?: string; html?: string };
+    } catch (e) {
+      return json(res, 400, { error: `请求体不是合法 JSON: ${(e as Error).message}` });
+    }
+    const comp = parsed.component ?? "";
+    const html = parsed.html ?? "";
+    if (!comp || !html) return json(res, 400, { error: "缺少 component 或 html 参数" });
+    const abs = safeResolve(assetsRoot, comp);
+    if (!abs || !abs.endsWith(".xml") || !fs.existsSync(abs)) {
+      return json(res, 404, { error: `组件不存在或路径越界: ${comp}` });
+    }
+    const pkg = loadPackage(findPackageDir(path.dirname(abs), assetsRoot));
+    const scene = getComponent(abs, { fresh: true });
+    const result = writeComponentXml(scene, html);
+    return json(res, 200, result);
+  }
+
+  // 场景结构 diff（S4）：两份组件的结构差异（新增/删除/移动/属性变化，stableKey 定位）
+  if (p === "/api/scene-diff") {
+    const a = u.searchParams.get("a") ?? "";
+    const b = u.searchParams.get("b") ?? "";
+    if (!a || !b) return json(res, 400, { error: "缺少 a 或 b 参数" });
+    const absA = safeResolve(assetsRoot, a);
+    const absB = safeResolve(assetsRoot, b);
+    if (!absA || !absB || !absA.endsWith(".xml") || !absB.endsWith(".xml") || !fs.existsSync(absA) || !fs.existsSync(absB)) {
+      return json(res, 404, { error: `组件不存在或路径越界: ${a} / ${b}` });
+    }
+    const pkgA = loadPackage(findPackageDir(path.dirname(absA), assetsRoot));
+    const pkgB = loadPackage(findPackageDir(path.dirname(absB), assetsRoot));
+    const sceneA = buildScene(getComponent(absA, { fresh: true }), { pkg: pkgA, root });
+    const sceneB = buildScene(getComponent(absB, { fresh: true }), { pkg: pkgB, root });
+    return json(res, 200, diffScenes(sceneA, sceneB));
   }
 
   // UI 资产索引检索（S2）：q = 文件路径 / 组件名 / 包名 / pkgId.resId

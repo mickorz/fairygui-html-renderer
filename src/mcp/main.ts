@@ -1,5 +1,5 @@
 import path from "node:path";
-import { toolSearchUiAssets, toolFindComponentUsages, toolGetComponentGraph } from "./tools.js";
+import { toolSearchUiAssets, toolFindComponentUsages, toolGetComponentGraph, toolDiffScenes, toolWriteComponentXml } from "./tools.js";
 import { createInterface } from "node:readline";
 import { toolListComponents, toolLocate, toolRender, toolScreenshot } from "./tools.js";
 
@@ -68,6 +68,30 @@ const TOOLS = [
     },
   },
   {
+    name: "diff_component_scenes",
+    description: "两份组件的场景结构 diff：新增/删除/移动（跨父）/属性级变化（flatten 路径全量报告），节点带 stableKey 可深度定位",
+    inputSchema: {
+      type: "object",
+      properties: {
+        a: { type: "string", description: "基准版组件路径（如 Basics/Demo_Button.xml）" },
+        b: { type: "string", description: "对比版组件路径" },
+      },
+      required: ["a", "b"],
+    },
+  },
+  {
+    name: "write_component_xml",
+    description: "语义 HTML -> 组件 XML 文本（合并写出：属性级覆盖应用到原组件，gear/controller/扩展元素保留；结构增删移不支持会如实报诊断）。不写文件系统，返回 XML 文本由调用方决定落盘",
+    inputSchema: {
+      type: "object",
+      properties: {
+        component: { type: "string", description: "目标组件工程相对路径（如 Basics/Demo_Button.xml）" },
+        html: { type: "string", description: "语义 HTML（渲染器产物形态：节点携带 data-fgui-id/data-fgui-src/data-fgui-attrs）" },
+      },
+      required: ["component", "html"],
+    },
+  },
+  {
     name: "screenshot_component",
     description: "渲染 + Chrome headless 截图，返回 PNG 绝对路径与节点信息；用于视觉验证 UI 定位结果",
     inputSchema: {
@@ -111,6 +135,10 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
       return toolFindComponentUsages(ctx, { id: args.id ? String(args.id) : undefined, file: args.file ? String(args.file) : undefined });
     case "get_component_graph":
       return toolGetComponentGraph(ctx, { key: args.key ? String(args.key) : undefined });
+    case "write_component_xml":
+      return toolWriteComponentXml(ctx, { component: String(args.component ?? ""), html: String(args.html ?? "") });
+    case "diff_component_scenes":
+      return toolDiffScenes(ctx, { a: String(args.a ?? ""), b: String(args.b ?? "") });
     case "screenshot_component":
       return toolScreenshot(ctx, {
         key: String(args.key ?? ""),

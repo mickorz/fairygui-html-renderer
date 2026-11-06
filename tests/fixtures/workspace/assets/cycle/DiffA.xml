@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component size="100,100">
+  <displayList>
+    <text id="n1" name="title" xy="0,0" size="100,20" text="Hello" fontSize="12"/>
+    <graph id="n2" name="bg" xy="0,30" size="50,50" type="rect" fillColor="#ff00ff00"/>
+    <component id="n3" name="movedChild" src="c_si" xy="0,90"/>
+    <graph id="n5" name="removedBg" xy="60,60" size="10,10" type="rect"/>
+  </displayList>
+</component>

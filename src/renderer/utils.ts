@@ -47,7 +47,14 @@ export function baseStyle(geo: Geo, node: ParsedNode): string {
 /** 节点溯源 data 属性（instancePath/stableKey 由 buildScene 构建时填充） */
 export function dataAttrs(node: ParsedNode, file: string): string {
   const src = file.split(path.sep).join("/");
-  return `data-fgui-id="${esc(node.id)}" data-fgui-name="${esc(node.name)}" data-fgui-src="${esc(src)}" data-fgui-type="${esc(node.type)}" data-fgui-path="${esc(node.instancePath ?? "")}" data-fgui-key="${esc(node.stableKey ?? "")}"`;
+  // data-fgui-attrs：原始 XML 属性全量 JSON（写出器数据通道；单引号包裹避 JSON 双引号转义，' 转义为 &#39;）
+  const attrsJson = escAttrSingle(JSON.stringify(node.attrs ?? {}));
+  return `data-fgui-id="${esc(node.id)}" data-fgui-name="${esc(node.name)}" data-fgui-src="${esc(src)}" data-fgui-type="${esc(node.type)}" data-fgui-path="${esc(node.instancePath ?? "")}" data-fgui-key="${esc(node.stableKey ?? "")}" data-fgui-attrs='${attrsJson}'`;
+}
+
+/** 单引号属性值转义（& 与 ' 必转；< 保守转义；双引号原样保留给 JSON） */
+export function escAttrSingle(v: string): string {
+  return v.replace(/&/g, "&amp;").replace(/'/g, "&#39;").replace(/</g, "&lt;");
 }
 
 /** image 染色 filter 片段（登记到 tints 集合，renderHtml 末尾生成 SVG defs）；返回裸 url 引用，由调用方拼 filter 属性 */

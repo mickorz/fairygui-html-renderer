@@ -21,6 +21,8 @@
     <component id="c_tr" name="TreeFix.xml" path="/"/>
     <component id="c_tc" name="TreeCell.xml" path="/"/>
     <component id="c_tl" name="TreeListFix.xml" path="/"/>
+    <component id="c_da" name="DiffA.xml" path="/"/>
+    <component id="c_db" name="DiffB.xml" path="/"/>
     <image id="i_a" name="pic.png" path="/" width="61" height="53"/>
     <movieclip id="m_a" name="anim.jta" path="/"/>
     <image id="i_b" name="pic.png" path="/" width="61" height="53" scale9grid="10,10,40,30"/>
