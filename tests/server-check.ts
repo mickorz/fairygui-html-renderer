@@ -155,6 +155,16 @@ try {
 
   const sEmpty = await get("/api/search?q=zzznope");
   check("无匹配返回空结果", sEmpty.status === 200 && JSON.parse(sEmpty.body).results.length === 0);
+
+  // ===== S6：路径守卫加固（符号链接 realpath 复核 + 不存在返回 404） =====
+  {
+    const { safeResolve } = await import("../src/server/server.js");
+    const guardRoot = path.join(workspace, "assets");
+    check("守卫：正常包内路径放行", safeResolve(guardRoot, "cycle/P3Fix.xml") !== null);
+    check("守卫：越界路径拦截", safeResolve(guardRoot, "../package.json") === null);
+    check("守卫：不存在文件拦截（realpath 复核）", safeResolve(guardRoot, "cycle/NotExist.xml") === null);
+    check("守卫：root 本身不放行", safeResolve(guardRoot, ".") === null);
+  }
 } finally {
   server.close();
 }

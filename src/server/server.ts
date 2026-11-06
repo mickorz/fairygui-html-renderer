@@ -6,7 +6,7 @@ import { getComponent, buildScene, clearCache } from "../scene/scene-builder.js"
 import { listPackages, searchWorkspace, listComponents } from "../scene/workspace.js";
 import { toSceneJson } from "../scene/scene-json.js";
 import { renderHtml } from "../renderer/html-renderer.js";
-import { indexHtml } from "./index-html.js";
+import { editorPageHtml } from "../editor/editor-page.js";
 
 // 只读工作区服务（阶段 B）：工程导航 + Scene Tree JSON + 资源与渲染视图
 // 安全边界：所有路径参数经统一守卫 safeResolve，解析结果必须仍落在工程根内；全程只读。
@@ -33,11 +33,20 @@ const MIME: Record<string, string> = {
 /**
  * 统一路径守卫：rel 先解码再 resolve，结果必须严格落在 root 内（含子目录）。
  * 返回绝对路径；越界返回 null。root 本身也不放行（只允许访问文件）。
+ * 符号链接穿透防护（沿袭 egret 项目 safe-path）：真实路径也必须落回 root 内
+ * （root 与目标都取 realpath，同步规避盘符大小写差异）；不存在/不可达返回 null。
  */
 export function safeResolve(root: string, rel: string): string | null {
   const rootNorm = path.normalize(root);
   const resolved = path.normalize(path.resolve(rootNorm, rel));
   if (resolved === rootNorm || !resolved.startsWith(rootNorm + path.sep)) return null;
+  try {
+    const realRoot = path.normalize(fs.realpathSync(rootNorm));
+    const real = path.normalize(fs.realpathSync(resolved));
+    if (real === realRoot || !real.startsWith(realRoot + path.sep)) return null;
+  } catch {
+    return null; // 不存在或不可达（调用方自行给 404）
+  }
   return resolved;
 }
 
@@ -82,7 +91,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, root: 
     return text(res, 405, "只读服务，仅支持 GET", "text/plain; charset=utf-8");
   }
 
-  if (p === "/") return text(res, 200, indexHtml);
+  if (p === "/") return text(res, 200, editorPageHtml());
 
   // 工程信息 + 包列表
   if (p === "/api/project") {
@@ -138,7 +147,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, root: 
         pkg,
         toAssetUrl: (assetAbs) => `/api/assets/${path.relative(assetsRoot, assetAbs).split(path.sep).join("/")}`,
       },
-      { bare: u.searchParams.get("bare") === "1" },
+      { bare: u.searchParams.get("bare") === "1", editor: u.searchParams.get("docid") !== null },
     );
     return text(res, 200, html);
   }

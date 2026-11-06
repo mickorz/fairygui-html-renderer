@@ -76,7 +76,7 @@ function createRenderChildren(unsupported: UnsupportedItem[], tints: Set<string>
 export function renderHtml(
   comp: ParsedComponent,
   ctx: RenderContext,
-  options: { bare?: boolean } = {},
+  options: { bare?: boolean; editor?: boolean } = {},
 ): string {
   const unsupported: UnsupportedItem[] = [];
   const tints = new Set<string>();
@@ -84,6 +84,8 @@ export function renderHtml(
   const inner = renderChildrenFn(comp, ctx, [path.normalize(comp.file)]);
 
   const bare = options.bare === true;
+  // editor：工作台 iframe 模式（docid 驱动 postMessage 协议）——无信息条但保留选择器脚本
+  const editor = options.editor === true;
   const listHtml = bare
     ? ""
     : unsupported.length
@@ -114,12 +116,12 @@ body { background:#2b2b2b; margin:0; padding:${bare ? 0 : 16}px; font-family:san
 </head>
 <body>
 ${defs}
-${bare ? "" : '<div id="fgui-info">点击画布中的组件查看定位信息</div>'}
+${bare || editor ? "" : '<div id="fgui-info">点击画布中的组件查看定位信息</div>'}
 ${listHtml}
 <div class="fgui-stage" style="width:${comp.size[0]}px;height:${comp.size[1]}px${comp.overflow === "scroll" ? ";overflow:auto" : ""}">
     ${inner}
 </div>
-${bare ? "" : `<script>${selectorScript()}</script>`}
+<script>${selectorScript()}</script>
 </body>
 </html>
 `;
