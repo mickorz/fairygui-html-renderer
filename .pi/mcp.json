@@ -4,6 +4,11 @@
       "command": "npx",
       "args": ["tsx", "src/mcp/main.ts"],
       "description": "FairyGUI 工程只读工具：列出包与组件、按名称/ID/路径定位 UI 节点、渲染组件为 HTML、Chrome headless 截图验证"
+    },
+    "fgui-bridge": {
+      "command": "node",
+      "args": ["thirdparties/fairygui-agent-bridge/mcp/server.mjs"],
+      "description": "FairyGUI 编辑器操作桥（thirdparties/fairygui-agent-bridge）：创建组件/插入删除元件/改属性（支持撤销）、读写组件 XML、发布 UI 包（与编辑器手动发布一致）。需先用 FairyGUI 编辑器打开工程（projects/fgui_game_42324 已装插件 plugins/agent-bridge，编辑器打开后桥在线 localhost:7531）"
     }
   }
 }
