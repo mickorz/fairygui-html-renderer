@@ -44,7 +44,9 @@ description_en: >-
 | 侧 | 通道 | 截图形态 | 尺寸 |
 |---|---|---|---|
 | web 渲染 | `GET /api/screenshot?component=<assets相对路径>&project=<工程>` | 组件区域纯净渲染（bare 模式，0,0 铺满，无滚动条/高亮） | = 组件 size（PNG IHDR 有硬断言） |
-| 编辑器 | fgui-bridge MCP `screenshot` 工具（`{"path":"..."}`） | **编辑器窗口整窗截图**（UnityEngine.ScreenCapture），不是组件区域裁剪 | = 编辑器窗口 |
+| 编辑器 | 实测链路（流程见 compare-flow 第 3 步）：open_doc + SendInput Ctrl+滚轮缩 80% + PrintWindow + PIL 精裁（脚本在本 skill scripts/） | 画布区域（编辑器画布底色+编辑态内容；组件内容溢出画布部分两侧行为一致均按画布裁剪） | = 组件 size（80% 缩放物理 1:1，见经验文档） |
+
+注意：桥的 `screenshot` 命令（ScreenCapture）在裁剪版编辑器不可用，**不要走那条通道**；`canvas_rect` 命令的 LocalToGlobal 坐标链不含渲染缩放，只做粗定位参考。
 
 两图构图天然不同（编辑器截图含编辑器 UI 框架）——对比策略必须走「内容确认 + ui_diff_check + 失败降级」，见流程第 5 步。产物按配对约定存 `dev-examples/screenshots/`：`<组件名>.render.png` 与 `<组件名>.fgui.png`，报告 `<组件名>-diff-report.md` 同目录。
 
