@@ -1,6 +1,7 @@
 // 工程组件树（沿袭 egret 项目 P3-A project-tree，适配 FairyGUI 包/组件两级模型）
 // 数据源：/api/project（包列表）+ /api/packages/{name}/components（包内组件，懒加载 + 客户端缓存）
 // 搜索：客户端过滤（组件名 / 资源 id / 路径 / 包名），未加载的包按需补拉后合并过滤
+// 多工程（P0-B）：包列表/组件缓存挂工程——检测 ED.project 变化即清空重拉；慢回包按工程代际丢弃
 
 export function projectTreeScript(): string {
   return `
@@ -10,10 +11,11 @@ export function projectTreeScript(): string {
   var qEl = document.getElementById("pt-q");
   var infoEl = document.getElementById("pt-info");
   var locateBtn = document.getElementById("pt-locate");
-  var packages = [];            // [{name}]（/api/project）
-  var compCache = {};           // 包名 -> 组件列表 [{id,name,exported,component}]（懒加载缓存）
+  var packages = [];            // [{name}]（/api/project，挂当前工程）
+  var compCache = {};           // 包名 -> 组件列表 [{id,name,exported,component}]（懒加载缓存，挂当前工程）
   var searchSeq = 0;
   var SEARCH_LIMIT = 300;
+  var curProject = null;        // 本模块已加载的工程（检测切换 -> 清缓存重拉）
 
   function esc(s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -67,10 +69,12 @@ export function projectTreeScript(): string {
 
   function loadPkg(name) {
     if (compCache[name]) return Promise.resolve(compCache[name]);
-    return fetch("/api/packages/" + encodeURIComponent(name) + "/components").then(function (r) {
+    var gen = ED.projectGen;
+    return edApi("/api/packages/" + encodeURIComponent(name) + "/components").then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
     }).then(function (d) {
+      if (gen !== ED.projectGen) return []; // 旧工程慢回包丢弃（abort 逃逸双保险）
       compCache[name] = d.components || [];
       return compCache[name];
     });
@@ -132,20 +136,35 @@ export function projectTreeScript(): string {
     if (compCache[pkg]) done(); else loadPkg(pkg).then(done).catch(done);
   };
 
-  // 状态订阅：文档变化刷新当前文件高亮
-  edSubscribe(function () { if (packages.length) { if (!qEl.value.trim()) render(); else renderSearch(); } });
-
-  // 初始化：包列表（默认展开第一个包）
-  fetch("/api/project").then(function (r) { return r.json(); }).then(function (d) {
-    packages = d.packages || [];
-    if (packages.length) {
-      ED.ptExpanded[packages[0].name] = true;
-      loadPkg(packages[0].name).then(render);
+  // 状态订阅：文档变化刷新当前文件高亮；工程切换 -> 清缓存重拉包列表
+  edSubscribe(function () {
+    if (ED.project && ED.project !== curProject) {
+      curProject = ED.project;
+      packages = []; compCache = {}; searchResults = null;
+      qEl.value = "";
+      loadProject();
+      return;
     }
-    infoEl.textContent = packages.length + " 个包";
-  }).catch(function (err) {
-    treeEl.innerHTML = '<div class="err">包列表加载失败: ' + esc(String(err)) + '</div>';
+    if (packages.length) { if (!qEl.value.trim()) render(); else renderSearch(); }
   });
+
+  // 包列表加载（挂当前工程，代际校验）
+  function loadProject() {
+    var gen = ED.projectGen;
+    treeEl.innerHTML = '<div class="empty">加载中...</div>';
+    edApi("/api/project").then(function (r) { return r.json(); }).then(function (d) {
+      if (gen !== ED.projectGen) return; // 旧工程慢回包丢弃
+      packages = d.packages || [];
+      if (packages.length) {
+        ED.ptExpanded[packages[0].name] = true;
+        loadPkg(packages[0].name).then(render);
+      }
+      infoEl.textContent = packages.length + " 个包";
+    }).catch(function (err) {
+      if (gen !== ED.projectGen) return;
+      treeEl.innerHTML = '<div class="err">包列表加载失败: ' + esc(String(err)) + '</div>';
+    });
+  }
 })();
 `;
 }

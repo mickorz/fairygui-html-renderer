@@ -22,6 +22,7 @@ body { font-family:sans-serif; background:#222; color:#ddd; display:flex; flex-d
 
 #topbar { height:34px; flex:none; display:flex; align-items:center; gap:10px; padding:0 10px; background:#2b2b2b; border-bottom:1px solid #444; }
 #topbar .name { color:#8ee6ff; white-space:nowrap; }
+#topbar select { background:#1e1e1e; color:#8ee6ff; border:1px solid #555; border-radius:3px; padding:2px 4px; font-size:12px; max-width:220px; }
 #tb-file { color:#ffd666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:36%; }
 #tb-stage { color:#888; white-space:nowrap; }
 #tb-spacer { flex:1; }
@@ -105,6 +106,7 @@ body.dragging iframe { pointer-events:none; }
 </head>
 <body>
 <div id="topbar">
+  <select id="tb-project-sel" title="切换 FairyGUI 工程" style="display:none"></select>
   <span class="name" id="tb-project">加载中...</span>
   <span id="tb-file">选择左侧组件</span>
   <span id="tb-stage"></span>
@@ -145,11 +147,34 @@ ${sceneTreeScript()}
 ${canvasHostScript()}
 ${inspectorScript()}
 
-// ---- 初始化：项目名 / 布局持久化 / 拖拽分隔条 / topbar 刷新 ----
+// ---- 初始化：多工程解析 / 布局持久化 / 拖拽分隔条 / topbar 刷新 ----
 (function () {
-  fetch("/api/project").then(function (r) { return r.json(); }).then(function (p) {
-    document.getElementById("tb-project").textContent = p.root + " · " + (p.packages ? p.packages.length : 0) + " 包";
+  // 多工程初始化（P0-B）：URL ?project= 为权威 > localStorage 记忆 > 服务端默认；
+  // 单工程模式隐藏下拉；edSetProject 内统一做 URL 固化 + localStorage 记忆 + 生命周期切换
+  fetch("/api/projects").then(function (r) { return r.json(); }).then(function (d) {
+    var sel = document.getElementById("tb-project-sel");
+    var projects = d.projects || [];
+    var names = projects.map(function (p) { return p.name; });
+    var urlName = new URLSearchParams(location.search).get("project");
+    var lsName = null;
+    try { lsName = localStorage.getItem("fgui.project"); } catch (e) { /* 存储不可用时忽略 */ }
+    var current = (urlName && names.indexOf(urlName) >= 0) ? urlName
+      : (lsName && names.indexOf(lsName) >= 0 ? lsName : d.defaultProject);
+    if (!current) { document.getElementById("tb-project").textContent = "无工程"; return; }
+    if (d.mode === "multi" && projects.length > 1) {
+      sel.style.display = "";
+      sel.innerHTML = projects.map(function (p) {
+        return '<option value="' + p.name + '">' + p.name + " · " + p.packageCount + " 包</option>";
+      }).join("");
+      sel.value = current;
+      sel.onchange = function () { edSetProject(sel.value); };
+    }
+    PROJECTS = projects; // 先存包数表再切换（edSetProject -> notify -> 顶栏刷新需要它）
+    edSetProject(current); // 统一切换入口：URL 固化 + 记忆 + abort 清状态 + notify
+  }).catch(function () {
+    document.getElementById("tb-project").textContent = "工程清单加载失败";
   });
+  var PROJECTS = []; // [{name, packageCount}]（/api/projects；工程名 -> 包数，供顶栏刷新）
 
   var LKEY = "fgui-editor-layout";
   function saveLayout() {
@@ -198,8 +223,14 @@ ${inspectorScript()}
     document.getElementById("proj-pane").style.height = Math.max(110, Math.min(window.innerHeight - top - 120, ev.clientY - top)) + "px";
   });
 
-  // topbar 文件与舞台尺寸与缩放比例刷新
+  // topbar 工程名/文件/舞台尺寸/缩放刷新（工程名随 ED.project 变化刷新，包数查 PROJECTS）
   edSubscribe(function () {
+    var tp = document.getElementById("tb-project");
+    if (ED.project) {
+      var pc = 0;
+      for (var i = 0; i < PROJECTS.length; i++) { if (PROJECTS[i].name === ED.project) pc = PROJECTS[i].packageCount; }
+      tp.textContent = ED.project + " · " + pc + " 包";
+    }
     document.getElementById("tb-file").textContent = ED.file || "选择左侧组件";
     var size = ED.doc && ED.doc.size;
     document.getElementById("tb-stage").textContent = size ? (size[0] + " x " + size[1]) : "";

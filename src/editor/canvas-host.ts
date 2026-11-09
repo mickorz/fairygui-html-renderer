@@ -103,8 +103,9 @@ export function canvasHostScript(): string {
     }
     relBar.style.display = "block";
     relBar.innerHTML = '<div class="title">组件关系加载中...</div>';
-    fetch("/api/component-graph?key=" + encodeURIComponent(id)).then(function (r) { return r.json(); }).then(function (nb) {
-      if (!ED.doc || !ED.sel && !nb.node) { /* 空邻域也展示 */ }
+    var docRef = ED.doc; // 慢回包校验：回包时文档已换（含工程切换）则丢弃，防旧工程覆盖新工程 rel-bar
+    edApi("/api/component-graph?key=" + encodeURIComponent(id)).then(function (r) { return r.json(); }).then(function (nb) {
+      if (ED.doc !== docRef) return;
       if (!nb.node) { relBar.innerHTML = '<span class="none">组件 ' + esc(id) + ' 无图节点</span>'; return; }
       // 引用目标 id -> 展示名（file 去包前缀）；点击跳转对应组件文件
       var html = '<div class="title">组件关系：' + esc(nb.node.name) + ' <span class="none">(' + esc(nb.node.file) + ')</span></div>';
@@ -113,6 +114,7 @@ export function canvasHostScript(): string {
       if (nb.inCycle && nb.inCycle.length) html += '<div class="cycle">警告：该组件在图级引用环中 [' + nb.inCycle.map(esc).join(", ") + ']</div>';
       relBar.innerHTML = html;
     }).catch(function () {
+      if (ED.doc !== docRef) return;
       relBar.innerHTML = '<div class="title">组件关系 <span class="none">加载失败</span></div>';
     });
   }
@@ -136,7 +138,9 @@ export function canvasHostScript(): string {
         return;
       }
       applyZoom();
-      frame.src = "/view?component=" + encodeURIComponent(ED.file) + "&bare=1&docid=" + encodeURIComponent(ED.docId);
+      // iframe src 带工程上下文（P0-B）：iframe 内资源 URL 由服务端按该 project 解析落位
+      frame.src = "/view?component=" + encodeURIComponent(ED.file) + "&bare=1&docid=" + encodeURIComponent(ED.docId)
+        + (ED.project ? "&project=" + encodeURIComponent(ED.project) : "");
       loadRel();
       return;
     }

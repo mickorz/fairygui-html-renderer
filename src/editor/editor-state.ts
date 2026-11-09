@@ -2,14 +2,22 @@
 // 零构建 vanilla：导出拼入页面的脚本字符串（与页面其他 editor 模块共享全局 ED）
 //
 // ED 数据流：
-//   openComponent(component) -> 拉取 /api/scene?component=（fetchSeq 防过期） -> 构建 key 索引 -> edNotify 分发
+//   openComponent(component) -> 拉取 /api/scene?component=（ED.api 统一入口，fetchSeq 防过期 + abort） -> 构建 key 索引 -> edNotify 分发
 //   setSelection(key, source) -> edNotify -> tree/canvas/inspector 各自响应
+//
+// 多工程切换（P0-B）：工程是请求的上下文不是服务状态——
+//   ED.project = 当前工程名（URL ?project= 为权威，localStorage 只记忆，服务端 defaultProject 兜底）
+//   ED.api(url, opts) = 统一请求入口：全部请求自动携带 ?project= 与当前工程的 abort signal
+//   edSetProject(name) = 切换生命周期：中止在途请求 -> 代际递增 -> 清空状态 -> URL/localStorage 同步 -> notify
 
 export function stateScript(): string {
   return `
-// ---- Selection Store + 文档加载（editor-state） ----
+// ---- Selection Store + 文档加载 + 工程上下文（editor-state） ----
 (function () {
   window.ED = {
+    project: null,          // 当前工程名（多工程；null = 未初始化，初始化前不发数据请求）
+    projectGen: 0,          // 工程代际：每次切换递增；旧工程慢回包比对丢弃（AbortController 双保险）
+    abort: null,            // 当前工程的 AbortController（ED.api 自动挂 signal；切换时 abort 全部在途请求）
     file: null,            // 当前组件相对路径（如 Basics/Demo_Button.xml）
     doc: null,             // /api/scene 文档（{file,packageId,size,extension,controllers,nodes} 或 {error}）
     docId: "",             // 当前文档标识（每次 openComponent 递增；postMessage 过期过滤）
@@ -24,6 +32,36 @@ export function stateScript(): string {
     index: null,           // Map<key, {node, parentKey, depth}>（Scene Tree 与 Inspector 共用）
     subs: []
   };
+
+  // 统一请求入口（P0-B）：自动携带 ?project=（当前工程）与 abort signal；
+  // 页面全部数据请求（含 POST）必须过这一处，禁止散落 fetch 直调
+  window.edApi = function (url, opts) {
+    var u = new URL(url, location.origin);
+    if (ED.project) u.searchParams.set("project", ED.project);
+    opts = opts || {};
+    if (ED.abort) opts.signal = ED.abort.signal;
+    return fetch(u, opts);
+  };
+
+  // 工程切换生命周期（P0-B）：URL 为权威，localStorage 只记忆；
+  // 中止在途 -> 代际递增 -> 清空全部状态（含 docId，旧 iframe 在途消息失配丢弃）-> notify
+  window.edSetProject = function (name) {
+    if (!name || ED.project === name) return;
+    if (ED.abort) { try { ED.abort.abort(); } catch (e) { /* 忽略 */ } }
+    ED.abort = new AbortController();
+    ED.projectGen++;
+    ED.project = name;
+    ED.file = null;
+    ED.doc = null;
+    ED.docId = "";
+    ED.sel = null; ED.source = null;
+    ED.ptExpanded = {}; ED.stExpanded = {}; ED.index = null;
+    ED.zoom = 1; ED.zoomFit = false;
+    try { localStorage.setItem("fgui.project", name); } catch (e) { /* 存储不可用时忽略 */ }
+    try { history.replaceState(null, "", "?project=" + encodeURIComponent(name)); } catch (e) { /* 忽略 */ }
+    edNotify();
+  };
+
 
   window.edSubscribe = function (fn) { ED.subs.push(fn); };
   window.edNotify = function () {
@@ -65,7 +103,7 @@ export function stateScript(): string {
     ED.stExpanded = {}; ED.index = null;
     ED.zoom = 1; ED.zoomFit = false; // 组件切换重置缩放
     edNotify(); // 通知加载中状态
-    fetch("/api/scene?component=" + encodeURIComponent(file)).then(function (r) {
+    edApi("/api/scene?component=" + encodeURIComponent(file)).then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
     }).then(function (doc) {
