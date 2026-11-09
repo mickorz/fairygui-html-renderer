@@ -14,7 +14,7 @@ function check(name: string, ok: boolean, detail = "") {
   if (!ok) failed++;
 }
 
-const root = path.resolve("CC-Default");
+const root = path.resolve("projects", "CC-Default");
 
 // ===== 单元：颜色与 PNG 尺寸 =====
 check("rgb 颜色转 hex", toHexColor("rgb(255, 214, 102)") === "#ffd666");

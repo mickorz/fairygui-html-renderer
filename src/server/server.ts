@@ -11,13 +11,17 @@ import { diffScenes } from "../scene/scene-diff.js";
 import { writeComponentXml } from "../writer/xml-writer.js";
 import { renderHtml } from "../renderer/html-renderer.js";
 import { editorPageHtml } from "../editor/editor-page.js";
+import { multiProjectWorkspace, singleProjectWorkspace, type Workspace } from "./projects.js";
 
 // 只读工作区服务（阶段 B）：工程导航 + Scene Tree JSON + 资源与渲染视图
-// 安全边界：所有路径参数经统一守卫 safeResolve，解析结果必须仍落在工程根内；全程只读。
+// 多工程切换（P0-A）：工程是请求上下文不是服务状态——每请求按 ?project= 白名单解析工程根。
+// 安全边界：所有路径参数经统一守卫 safeResolve，解析结果必须仍落在所选工程根内；全程只读。
 
 export interface AppOptions {
-  /** 工程根目录（其下应有 assets/ 包目录） */
-  rootDir: string;
+  /** 多工程模式：工程注册目录（每个含 assets 的子目录是一个工程）。优先于 rootDir */
+  projectsDir?: string;
+  /** 单工程模式：工程根目录（其下应有 assets/ 包目录）——现状形态，零行为变化 */
+  rootDir?: string;
 }
 
 const MIME: Record<string, string> = {
@@ -95,17 +99,18 @@ export function findPackageDir(componentFileDir: string, assetsRoot: string): st
 }
 
 export function createApp(opts: AppOptions): http.Server {
-  const root = path.resolve(opts.rootDir);
-  const assetsRoot = path.join(root, "assets");
+  const ws: Workspace = opts.projectsDir
+    ? multiProjectWorkspace(opts.projectsDir)
+    : singleProjectWorkspace(opts.rootDir ?? process.cwd());
 
   return http.createServer((req, res) => {
-    route(req, res, root, assetsRoot).catch((err) => {
+    route(req, res, ws).catch((err) => {
       text(res, 500, `服务内部错误: ${String((err as Error)?.message ?? err)}`, "text/plain; charset=utf-8");
     });
   });
 }
 
-async function route(req: http.IncomingMessage, res: http.ServerResponse, root: string, assetsRoot: string): Promise<void> {
+async function route(req: http.IncomingMessage, res: http.ServerResponse, ws: Workspace): Promise<void> {
   const u = new URL(req.url ?? "/", "http://localhost");
   const p = u.pathname;
   // 场景 B 安全前提：默认只读；POST 仅限 /api/xml-write（接收 HTML 返回 XML 文本，不落盘）
@@ -115,9 +120,25 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, root: 
 
   if (p === "/") return text(res, 200, editorPageHtml());
 
-  // 工程信息 + 包列表
+  // 工程注册清单（P0-A）：无需工程上下文，先于工程解析，供顶栏切换器
+  if (p === "/api/projects") {
+    return json(res, 200, {
+      mode: ws.mode,
+      defaultProject: ws.defaultProject,
+      projects: ws.projects.map(({ name, packageCount }) => ({ name, packageCount })),
+    });
+  }
+
+  // 工程解析（P0-A）：白名单 Map 查找；null -> 默认工程；multi 未知名 -> 404（不静默回退）
+  const projectName = u.searchParams.get("project");
+  const pj = ws.resolve(projectName);
+  if (!pj) return json(res, 404, { error: `未知工程: ${projectName}` });
+  const root = pj.root;
+  const assetsRoot = pj.assetsRoot;
+
+  // 工程信息 + 包列表（响应带工程名标识）
   if (p === "/api/project") {
-    return json(res, 200, { root: path.basename(root), packages: listPackages(root) });
+    return json(res, 200, { root: path.basename(root), project: pj.name, packages: listPackages(root) });
   }
 
   // 全工程搜索（阶段 C）：节点 name / id / 可读路径
@@ -232,7 +253,9 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, root: 
       scene,
       {
         pkg,
-        toAssetUrl: (assetAbs) => `/api/assets/${path.relative(assetsRoot, assetAbs).split(path.sep).join("/")}`,
+        // 资源 URL 必须携带工程上下文（P0-1）：iframe 加载了正确工程，内部图片/字体/动画请求也必须落到同一工程
+        toAssetUrl: (assetAbs) =>
+          `/api/assets/${path.relative(assetsRoot, assetAbs).split(path.sep).join("/")}?project=${encodeURIComponent(pj.name)}`,
       },
       { bare: u.searchParams.get("bare") === "1", editor: u.searchParams.get("docid") !== null },
     );

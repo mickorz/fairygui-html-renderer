@@ -96,7 +96,7 @@ fs.rmSync(tmpDir, { recursive: true, force: true });
 
 // ===== 真实样本往返冒烟（CC-Default：TreeView/TreeItem 含 controllers/gearDisplay/gearIcon/Button 扩展/indent 全形态） =====
 {
-  const realRoot = path.resolve(root, "..", "..", "..", "CC-Default");
+  const realRoot = path.resolve(root, "..", "..", "..", "projects", "CC-Default");
   if (fs.existsSync(path.join(realRoot, "assets"))) {
     const realPkgDir = path.join(realRoot, "assets", "TreeView");
     const realPkg = loadPackage(realPkgDir);

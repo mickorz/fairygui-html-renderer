@@ -18,7 +18,7 @@ function flat(html: string): string {
 }
 
 // ===== P0：dot.xml 最小渲染 =====
-const pkgDir = path.resolve("CC-Default/assets/Bag");
+const pkgDir = path.resolve("projects", "CC-Default/assets/Bag");
 const pkg = loadPackage(pkgDir);
 const dotHtml = renderHtml(
   buildScene(parseComponent(path.join(pkgDir, "dot.xml")), { pkg }),
@@ -34,7 +34,7 @@ check("节点保留原始 id/name", dotHtml.includes('data-fgui-id="n23_osdo"') 
 check("stage 尺寸 15x15", dotHtml.includes("width:15px;height:15px"));
 
 // ===== P1：BagWin 嵌套 / 九宫格 / gear 取值 =====
-const bagWin = buildScene(getComponent(path.join(pkgDir, "BagWin.xml")), { pkg, root: path.resolve("CC-Default") });
+const bagWin = buildScene(getComponent(path.join(pkgDir, "BagWin.xml")), { pkg, root: path.resolve("projects", "CC-Default") });
 const bagHtml = renderHtml(bagWin, { pkg, toAssetUrl: (f) => f });
 
 check("嵌套组件 frame 与 closeButton 三层展开", bagHtml.includes('data-fgui-name="frame"') && bagHtml.includes('data-fgui-name="closeButton"'));
@@ -59,7 +59,7 @@ check("选择器脚本与信息栏注入", bagHtml.includes('id="fgui-info"') &&
 check("所有节点均带实例路径", (bagHtml.match(/data-fgui-path=/g) || []).length >= 15);
 
 // ===== A1：displayList 有序解析（z 序正确性） =====
-const basicsDir = path.resolve("CC-Default/assets/Basics");
+const basicsDir = path.resolve("projects", "CC-Default/assets/Basics");
 const basicsPkg = loadPackage(basicsDir);
 // Demo_Image：XML 顺序 n11(text) 在 n12(image) 之前——DOM 中 n12 必须位于 n11 之后
 const demoHtml = renderHtml(
@@ -74,12 +74,12 @@ check("displayList 全序保持（12 节点）", positions.every((p, i) => p >= 
 
 // ===== 字体：系统字体名透传，BMFont 位图字体上报 =====
 const mainHtml = renderHtml(
-  buildScene(getComponent(path.join(basicsDir, "Main.xml")), { pkg: basicsPkg, root: path.resolve("CC-Default") }),
+  buildScene(getComponent(path.join(basicsDir, "Main.xml")), { pkg: basicsPkg, root: path.resolve("projects", "CC-Default") }),
   { pkg: basicsPkg, toAssetUrl: (f) => f },
 );
 check("系统字体名透传（微软雅黑）", mainHtml.includes("font-family:微软雅黑, Arial, sans-serif"));
 const demoTextHtml = renderHtml(
-  buildScene(getComponent(path.join(basicsDir, "Demo_Text.xml")), { pkg: basicsPkg, root: path.resolve("CC-Default") }),
+  buildScene(getComponent(path.join(basicsDir, "Demo_Text.xml")), { pkg: basicsPkg, root: path.resolve("projects", "CC-Default") }),
   { pkg: basicsPkg, toAssetUrl: (f) => f },
 );
 check("BMFont 位图字体逐字摆位渲染（Demo_Text）", (demoTextHtml.match(/display:inline-flex/g) ?? []).length >= 2 && demoTextHtml.includes("display:inline-block;width:"));
@@ -115,7 +115,7 @@ const dupHtml = renderHtml(
 check("同名节点键不同", dupHtml.includes('data-fgui-key="test01.c_c.d1"') && dupHtml.includes('data-fgui-key="test01.c_c.d2"'));
 check("可读 path 与稳定键并存", dupHtml.includes('data-fgui-path="Dup.dup"') && (dupHtml.match(/data-fgui-key=/g) || []).length >= 2);
 // resourceIdOf 反查
-check("resourceIdOf 反查组件资源 id", resourceIdOf(pkg, path.resolve("CC-Default/assets/Bag/BagWin.xml")) === "kcy10");
+check("resourceIdOf 反查组件资源 id", resourceIdOf(pkg, path.resolve("projects", "CC-Default/assets/Bag/BagWin.xml")) === "kcy10");
 check("cycle 包结构就位（workspace/assets 布局）", fxPkg().id === "test01");
 
 // ===== A4：缓存失效接口 =====

@@ -15,7 +15,7 @@ function check(name: string, ok: boolean, detail = "") {
   if (!ok) failed++;
 }
 
-const ctx = { rootDir: path.resolve("CC-Default") };
+const ctx = { rootDir: path.resolve("projects", "CC-Default") };
 const fxRoot = { rootDir: path.resolve("tests/fixtures/workspace") };
 
 // ===== 场景 1：同名组件重复出现（locate → 两个 key 各自定位） =====

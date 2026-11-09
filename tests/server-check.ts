@@ -107,13 +107,13 @@ try {
 
   // ===== 6. 双模式一致（服务渲染 vs CLI 渲染路径） =====
   // 用 CC-Default 再起一个服务实例（测试主实例的 root 是 fixtures/workspace）
-  const ccServer = createApp({ rootDir: path.resolve("CC-Default") });
+  const ccServer = createApp({ rootDir: path.resolve("projects", "CC-Default") });
   await new Promise<void>((r) => ccServer.listen(0, "127.0.0.1", r));
   try {
     const ccPort = (ccServer.address() as AddressInfo).port;
-    const pkg = loadPackage(path.resolve("CC-Default/assets/Bag"));
+    const pkg = loadPackage(path.resolve("projects", "CC-Default/assets/Bag"));
     const cliHtml = renderHtml(
-      buildScene(getComponent(path.resolve("CC-Default/assets/Bag/BagWin.xml")), { pkg, root: path.resolve("CC-Default") }),
+      buildScene(getComponent(path.resolve("projects", "CC-Default/assets/Bag/BagWin.xml")), { pkg, root: path.resolve("projects", "CC-Default") }),
       { pkg, toAssetUrl: (f) => f },
     );
     const serverView = await fetch(`http://127.0.0.1:${ccPort}/view?component=` + encodeURIComponent("Bag/BagWin.xml"));
@@ -202,6 +202,108 @@ try {
     check("守卫：越界路径拦截", safeResolve(guardRoot, "../package.json") === null);
     check("守卫：不存在文件拦截（realpath 复核）", safeResolve(guardRoot, "cycle/NotExist.xml") === null);
     check("守卫：root 本身不放行", safeResolve(guardRoot, ".") === null);
+  }
+
+  // ===== P0-A：多工程切换（projects/ 注册目录 + ?project= 白名单 + 资源链路携带工程） =====
+  {
+    // 单工程兼容：主实例（fixtures/workspace 形态）/api/projects 返回 single 模式单元素
+    const single = await get("/api/projects");
+    const sd = JSON.parse(single.body) as { mode: string; defaultProject: string; projects: { name: string }[] };
+    check(
+      "多工程：单工程模式兼容（single + 唯一工程）",
+      single.status === 200 && sd.mode === "single" && sd.projects.length === 1 && sd.defaultProject === sd.projects[0].name,
+      single.body.slice(0, 120),
+    );
+
+    // 双工程夹具实例（workspace2/projects/a + b：同名包名/组件/图片路径，仅内容不同）
+    const ws2 = path.resolve("tests/fixtures/workspace2/projects");
+    const server2 = createApp({ projectsDir: ws2 });
+    await new Promise<void>((r) => server2.listen(0, "127.0.0.1", r));
+    const base2 = `http://127.0.0.1:${(server2.address() as AddressInfo).port}`;
+    try {
+      const g2 = async (url: string): Promise<{ status: number; body: string }> => {
+        const r = await fetch(base2 + url);
+        return { status: r.status, body: await r.text() };
+      };
+      // 1. 双工程注册
+      const pr = await g2("/api/projects");
+      const pd = JSON.parse(pr.body) as { mode: string; defaultProject: string; projects: { name: string; packageCount: number }[] };
+      check(
+        "多工程：注册清单（multi + a/b 两工程）",
+        pr.status === 200 && pd.mode === "multi" && pd.defaultProject === "a"
+          && pd.projects.length === 2 && pd.projects.every((x) => x.name.length === 1 && x.packageCount === 1),
+        pr.body.slice(0, 160),
+      );
+      // 2. 切换不重启：同进程两个工程各自的包列表
+      const pa = JSON.parse((await g2("/api/project?project=a")).body) as { project: string; packages: { name: string }[] };
+      const pb = JSON.parse((await g2("/api/project?project=b")).body) as { project: string; packages: { name: string }[] };
+      check(
+        "多工程：切换不重启（a/b 各自正确响应带工程名）",
+        pa.project === "a" && pb.project === "b" && pa.packages.some((x) => x.name === "Pkg") && pb.packages.some((x) => x.name === "Pkg"),
+        JSON.stringify([pa.project, pb.project]),
+      );
+      // 3. 缺省回退默认工程 + 未知工程 404
+      const pd2 = JSON.parse((await g2("/api/project")).body) as { project: string };
+      const unknown = await g2("/api/project?project=c");
+      check("多工程：缺省回退默认工程 a", pd2.project === "a", pd2.project);
+      check("多工程：未知工程 404（不静默回退）", unknown.status === 404, `status=${unknown.status}`);
+      // 4. 路径越界：跨工程相对路径被守卫拦截（safeResolve 以所选工程 assetsRoot 为界）
+      const cross = await g2("/api/scene?project=a&component=../b/assets/Pkg/Comp.xml");
+      check("多工程：跨工程路径拒绝", cross.status === 404, `status=${cross.status}`);
+      // 5. 资源隔离（P0-1 核心）：同名图片相对路径各归各工程
+      const ra = await g2("/api/assets/Pkg/img.png?project=a");
+      const rb = await g2("/api/assets/Pkg/img.png?project=b");
+      check(
+        "多工程：资源隔离（同名图片各归各工程）",
+        ra.status === 200 && rb.status === 200 && ra.body === "PNG-DATA-PROJ-a" && rb.body === "PNG-DATA-PROJ-b",
+        `a=${ra.body} b=${rb.body}`,
+      );
+      // 6. 渲染资源 URL 携带工程（P0-1：/view 产物内资源地址带 project）
+      const va = await g2("/view?project=a&component=Pkg/Comp.xml");
+      const vb = await g2("/view?project=b&component=Pkg/Comp.xml");
+      check(
+        "多工程：渲染资源 URL 带 project（/view 产物）",
+        va.status === 200 && vb.status === 200
+          && va.body.includes("/api/assets/Pkg/img.png?project=a") && va.body.includes("PROJ_a")
+          && vb.body.includes("/api/assets/Pkg/img.png?project=b") && vb.body.includes("PROJ_b"),
+        `a含url=${va.body.includes("?project=a")} b含url=${vb.body.includes("?project=b")}`,
+      );
+      // 7. scene-diff 带工程（同工程内 diff 自身为空）
+      const da = JSON.parse((await g2("/api/scene-diff?project=a&a=Pkg/Comp.xml&b=Pkg/Comp.xml")).body) as { stats: { added: number; removed: number; changed: number } };
+      check(
+        "多工程：scene-diff 带工程（同组件 diff 为空）",
+        da.stats.added === 0 && da.stats.removed === 0 && da.stats.changed === 0,
+        JSON.stringify(da.stats),
+      );
+      // 8. xml-write 带工程（POST query 上的 project；b 工程文本回写）
+      const wr2 = await fetch(base2 + "/api/xml-write?project=b", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ component: "Pkg/Comp.xml", html: "<div></div>" }),
+      });
+      const wd2 = JSON.parse(await wr2.text()) as { xml?: string; nodeCount?: number; error?: string };
+      check(
+        "多工程：xml-write 带工程（b 工程原样合并写出含 PROJ_b）",
+        wr2.status === 200 && (wd2.xml?.includes("PROJ_b") ?? false) && !(wd2.xml?.includes("PROJ_a") ?? false),
+        JSON.stringify({ status: wr2.status, error: wd2.error }),
+      );
+      // 9. 并发隔离：a/b 交错请求互不污染（工程是请求上下文不是服务状态）
+      const [sa, sb, sa2] = await Promise.all([
+        g2("/api/scene?project=a&component=Pkg/Comp.xml"),
+        g2("/api/scene?project=b&component=Pkg/Comp.xml"),
+        g2("/api/scene?project=a&component=Pkg/Comp.xml"),
+      ]);
+      const textsOf = (body: string): string =>
+        (JSON.parse(body) as { nodes: { attrs?: { text?: string } }[] }).nodes.map((n) => n.attrs?.text ?? "").join(",");
+      check(
+        "多工程：并发隔离（a/b 交错互不污染）",
+        textsOf(sa.body).includes("PROJ_a") && textsOf(sb.body).includes("PROJ_b")
+          && textsOf(sa2.body).includes("PROJ_a") && !textsOf(sb.body).includes("PROJ_a"),
+        `a=${textsOf(sa.body)} b=${textsOf(sb.body)}`,
+      );
+    } finally {
+      server2.close();
+    }
   }
 } finally {
   server.close();

@@ -1,13 +1,15 @@
-import path from "node:path";
 import { toolSearchUiAssets, toolFindComponentUsages, toolGetComponentGraph, toolDiffScenes, toolWriteComponentXml } from "./tools.js";
 import { createInterface } from "node:readline";
 import { toolListComponents, toolLocate, toolRender, toolScreenshot } from "./tools.js";
+import { defaultProjectRoot } from "../server/projects.js";
 
 // fairygui-html-renderer MCP server（阶段 D）
 // stdio 传输：换行分隔 JSON-RPC 2.0；实现 initialize / tools/list / tools/call
 // 接入：pi mcp add fairygui -- npx tsx src/mcp/main.ts（或 .pi/mcp.json）
+// 多工程切换 P0-A：默认工程根跟随工作区发现（projects/ 注册目录优先，回退环境变量/CC-Default）；
+// 多工程 project 参数化在 P1（届时改为每次调用独立解析 ProjectContext，不做可变全局）
 
-const root = path.resolve(process.env.FGUI_PROJECT_ROOT ?? "CC-Default");
+const root = defaultProjectRoot();
 const ctx = { rootDir: root };
 
 const TOOLS = [
