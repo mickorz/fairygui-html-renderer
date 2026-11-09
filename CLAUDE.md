@@ -78,6 +78,7 @@
 6. **改代码不生效先查进程**：排查"改了代码页面没变化"，第一步确认 server 进程启动时间是否早于代码提交（netstat 查端口 PID）。区分"数据不生效"（XML 层 fresh 重解析覆盖）与"代码不生效"（必须重启进程）；长驻服务一律 tsx watch。
 7. **九宫格 border-image 必须加 fill 关键字**：CSS `border-image-slice` 默认不画中心（四边四角之外的中间镂空），FairyGUI scale9grid 是画中心的（中心拉伸）。漏 `fill` 会镂空露出 stage 底色，看起来像"文本有灰背景"。（坑见 experience/2026-11-04-九宫格border-image漏fill中心镂空.md）
 9. **判断"某特性是否可达"必须先 grep 真实样本属性词**：不能只按类名/枚举搜 SDK 源码（源码版本可能落后于编辑器导出版本），必须 grep `CC-Default/assets` 里的真实 XML 属性词。反例：treeView/isFolder/level 在该 SDK 源码里完全不存在，曾被误判"树数据无 XML 通道"，实际 TreeView 包的树数据全在 XML 里。
+10. **服务内同步 spawn 截图自死锁**：Node 单线程 HTTP 服务里，凡是「起子进程抓本服务自己的 URL」的链路（如截图路由截 /view 页面），禁止 spawnSync——它会阻塞事件循环，子进程的 HTTP 请求无人应答形成自死锁（表现 30s 超时退出码 null；stderr 里 Google Update pipe 报错是噪音红鲱鱼）。一律异步 spawn + Promise。（坑见 experience/2026-11-09-服务内spawnSync截图自死锁.md）
 8. **渲染器节点文件一类型一文件**：`src/renderer/nodes/` 每种节点类型/扩展类型对应一个独立渲染文件（image/text/graph/jta/... 节点类型 + button/combobox/progress/slider 扩展分支），**禁止多类型共用同一渲染文件**。同族共用逻辑抽私有/导出函数（如 renderButtonLike/renderProgressLike），各类型文件做薄包装。依据：用户明确要求文件结构与概念一一对应（便于定位与扩展）。（节点类型 vs 扩展类型的挂载点区分见规则 4 相关经验）
 
 ## 看图与视觉验证（MCP 工具链）
