@@ -105,7 +105,7 @@ export function renderHtml(
 <title>${esc(path.basename(comp.file))} - fairygui-html-renderer</title>
 <style>
 body { background:#2b2b2b; margin:0; padding:${clip ? (bare ? 0 : 16) : 48}px; font-family:sans-serif;${clip ? "" : " overflow:auto;"} }
-.fgui-stage { position:relative; background:#5a5a5a; overflow:${clip ? (comp.overflow === "scroll" ? "auto" : "hidden") : "visible"};${clip ? "" : " border:1px dashed #9a9a9a; margin:0 auto;"} }
+.fgui-stage { position:relative; background:#5a5a5a; overflow:${clip ? (comp.overflow === "scroll" ? "auto" : "hidden") : "visible"};${clip ? "" : ` border:1px dashed #9a9a9a; margin:${editor ? "0" : "0 auto"};`} }
 .fgui-node { position:absolute; box-sizing:border-box; }
 /* 可滚容器滚动条可见化（N1）：Chrome 覆盖式滚动条默认静止时不显示 */
 .fgui-stage::-webkit-scrollbar, .fgui-node::-webkit-scrollbar { width:12px; height:12px; }

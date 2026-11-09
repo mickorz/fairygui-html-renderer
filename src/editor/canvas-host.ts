@@ -21,12 +21,17 @@ export function canvasHostScript(): string {
     var size = (ED.doc && !ED.doc.error && ED.doc.size) || [640, 480];
     var w = size[0] || 640;
     var h = size[1] || 480;
-    frame.style.width = w + "px";
-    frame.style.height = h + "px";
+    // iframe 尺寸自适应文档内容（L8）：CANVAS_READY 上报 docSize（含 clip=0 溢出内容），
+    // 无上报时退回组件 size + 两侧舞台余量（渲染器 clip=false body padding 48x2）
+    var PAD = 96;
+    var cw = Math.max(w + PAD, (ED.docContentSize && ED.docContentSize[0]) || 0);
+    var ch = Math.max(h + PAD, (ED.docContentSize && ED.docContentSize[1]) || 0);
+    frame.style.width = cw + "px";
+    frame.style.height = ch + "px";
     frame.style.transformOrigin = "0 0";
     frame.style.transform = ED.zoom === 1 ? "" : "scale(" + ED.zoom + ")";
-    frameBox.style.width = Math.round(w * ED.zoom) + "px";
-    frameBox.style.height = Math.round(h * ED.zoom) + "px";
+    frameBox.style.width = Math.round(cw * ED.zoom) + "px";
+    frameBox.style.height = Math.round(ch * ED.zoom) + "px";
   }
 
   // topbar 缩放控件：步进 x1.25；手动缩放取消 Fit 模式
@@ -68,6 +73,11 @@ export function canvasHostScript(): string {
     if (!m || typeof m !== "object" || m.documentId !== ED.docId) return; // 过期文档消息丢弃
     if (m.type === "CANVAS_READY") {
       canvasReady = true;
+      // 文档内容尺寸（含溢出）：iframe 自适应内容（≥组件+96 余量），永远完整显示不滚（L8）
+      if (Array.isArray(m.docSize) && typeof m.docSize[0] === "number" && m.docSize[0] > 0) {
+        ED.docContentSize = m.docSize;
+        applyZoom();
+      }
       sendSelection(); // 树侧已选中而画布刚就绪：补发高亮
       return;
     }

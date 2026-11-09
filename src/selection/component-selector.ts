@@ -80,7 +80,9 @@ export function selectorScript(): string {
         clearSelection();
       }
     });
-    postToParent({ type: "CANVAS_READY" });
+    // 文档内容尺寸（含 clip=0 溢出内容）：父工作台据此自适应 iframe 尺寸（永远完整显示不滚，L8）
+    var de = document.documentElement;
+    postToParent({ type: "CANVAS_READY", docSize: [Math.ceil(de.scrollWidth), Math.ceil(de.scrollHeight)] });
   }
 
   // 深度定位：/view?component=X&focus=<stableKey>，加载即高亮目标节点并滚动到可视区

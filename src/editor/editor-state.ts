@@ -54,6 +54,7 @@ export function stateScript(): string {
     ED.file = null;
     ED.doc = null;
     ED.docId = "";
+    ED.docContentSize = null;
     ED.sel = null; ED.source = null;
     ED.ptExpanded = {}; ED.stExpanded = {}; ED.index = null;
     ED.zoom = 1; ED.zoomFit = false;
@@ -100,6 +101,7 @@ export function stateScript(): string {
     ED.doc = null;
     ED.sel = null; ED.source = null;
     ED.docId = "d" + (++ED.docSeq);
+    ED.docContentSize = null; // 旧文档内容尺寸丢弃（新文档 CANVAS_READY 重新上报，L8）
     ED.stExpanded = {}; ED.index = null;
     ED.zoom = 1; ED.zoomFit = false; // 组件切换重置缩放
     edNotify(); // 通知加载中状态
