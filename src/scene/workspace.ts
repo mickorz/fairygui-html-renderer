@@ -1,6 +1,6 @@
 import path from "node:path";
 import { existsSync, readdirSync } from "node:fs";
-import { loadPackage, type FairyPackage } from "../parser/package-parser.js";
+import { loadPackage, type FairyPackage, type Resource } from "../parser/package-parser.js";
 import { buildGlobalIndex, parseUiUrl, type GlobalIndex } from "./global-index.js";
 import { getComponent, buildScene } from "./scene-builder.js";
 import type { ParsedNode } from "../parser/component-parser.js";
@@ -55,6 +55,36 @@ export function listComponents(root: string, pkgName: string): { packageId: stri
         // 包内子目录组件（path 如 /components/）必须拼进相对路径，否则 scene/view 404
         component: `${pkgName}${r.path}${r.name}`,
       })),
+  };
+}
+
+/** 包内资源清单（L9 资源库对齐原版编辑器：组件/图片/字体/动画全量）；包不存在返回 null */
+export interface ResourceListing {
+  kind: "component" | "image" | "font" | "movieclip" | "other";
+  id: string;
+  name: string;
+  path: string;
+  exported: boolean;
+  /** 组件资源才有：含包内子目录的相对路径（scene/view/render 接口的 component 参数值） */
+  component?: string;
+}
+
+export function listResources(root: string, pkgName: string): { packageId: string; resources: ResourceListing[] } | null {
+  const pkgDir = path.join(root, "assets", pkgName);
+  if (!existsSync(path.join(pkgDir, "package.xml"))) return null;
+  const pkg: FairyPackage = loadPackage(pkgDir);
+  const kindOf = (r: Resource): ResourceListing["kind"] =>
+    r.kind === "component" ? "component" : r.kind === "image" ? "image" : r.kind === "other" && (r.type === "font" || r.type === "bitmapfont") ? "font" : r.kind === "other" && r.type === "movieclip" ? "movieclip" : "other";
+  return {
+    packageId: pkg.id,
+    resources: pkg.resources.map((r) => ({
+      kind: kindOf(r),
+      id: r.id,
+      name: r.name,
+      path: r.path,
+      exported: r.kind === "component" ? r.exported === true : true,
+      ...(r.kind === "component" ? { component: `${pkgName}${r.path}${r.name}` } : {}),
+    })),
   };
 }
 

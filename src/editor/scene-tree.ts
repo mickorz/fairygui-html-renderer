@@ -31,8 +31,8 @@ export function sceneTreeScript(): string {
     el.style.paddingLeft = (8 + depth * 14) + "px";
     var ident = n.name || n.id || "";
     var html = '<span class="caret' + (kids.length ? ' clk' : '') + '">' + (kids.length ? (expanded ? "-" : "+") : "") + '</span>' +
-      '<span class="icon">' + (ICON[n.type] || "·") + '</span>' +
-      '<span class="lbl" title="' + esc(key) + '">' + esc(n.type) + (ident ? ' <span class="id">' + esc(ident) + '</span>' : '') + '</span>';
+      '<span class="icon" title="' + esc(n.type) + '">' + (ICON[n.type] || "·") + '</span>' +
+      '<span class="lbl" title="' + esc(n.type + " " + key) + '">' + esc(ident) + '</span>';
     if (n.component && n.component.file && ED.file && n.component.file !== ED.file) html += '<span class="badge exp" title="' + esc(n.component.file) + '">展开</span>';
     if (n.unsupported && n.unsupported.length) html += '<span class="badge sim" title="' + esc(n.unsupported.join("; ")) + '">未支持</span>';
     el.innerHTML = html;

@@ -3,7 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { loadPackage } from "../parser/package-parser.js";
 import { getComponent, buildScene, clearCache } from "../scene/scene-builder.js";
-import { listPackages, searchWorkspace, listComponents } from "../scene/workspace.js";
+import { listPackages, searchWorkspace, listComponents, listResources } from "../scene/workspace.js";
 import { toSceneJson } from "../scene/scene-json.js";
 import { buildUiAssetIndex, searchUiAssets, findComponentUsages } from "../scene/ui-asset-index.js";
 import { buildComponentGraph, classNeighborhood, graphIdOf } from "../scene/component-graph.js";
@@ -214,7 +214,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, ws: Wo
     return json(res, 200, classNeighborhood(graph, id));
   }
 
-  // 包内组件清单
+  // 包内组件清单（含全量资源清单：L9 资源库列组件/图片/字体/动画，对齐原版编辑器）
   const pkgCompMatch = p.match(/^\/api\/packages\/([^/]+)\/components$/);
   if (pkgCompMatch) {
     const pkgName = decodeURIComponent(pkgCompMatch[1]);
@@ -225,7 +225,13 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, ws: Wo
     // 共用 workspace.listComponents（含包内子目录 path 拼接）
     const listing = listComponents(root, pkgName);
     if (!listing) return json(res, 404, { error: `包不存在: ${pkgName}` });
-    return json(res, 200, { package: pkgName, packageId: listing.packageId, components: listing.components });
+    const resListing = listResources(root, pkgName);
+    return json(res, 200, {
+      package: pkgName,
+      packageId: listing.packageId,
+      components: listing.components,
+      resources: resListing ? resListing.resources : [],
+    });
   }
 
   // Scene Tree JSON（AI 与前端共用的核心数据模型）

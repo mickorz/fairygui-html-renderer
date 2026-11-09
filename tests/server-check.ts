@@ -40,6 +40,17 @@ try {
     comps.status === 200 && compsData.components.some((c) => c.component === "cycle/CycleA.xml") && compsData.components.some((c) => c.id === "c_a"),
   );
 
+  // L9 资源库：包内全量资源清单（组件/图片/字体/动画）
+  const res = await get("/api/packages/cycle/components");
+  const resData = JSON.parse(res.body) as { resources: { kind: string; id: string; name: string; component?: string }[]; components: unknown[] };
+  check(
+    "资源清单（L9 资源库：组件+图片全量返回且组件带路径）",
+    res.status === 200 &&
+      resData.resources.some((r) => r.kind === "component" && r.id === "c_a" && r.name === "CycleA.xml" && r.component === "cycle/CycleA.xml") &&
+      resData.resources.some((r) => r.kind === "image" && r.id === "i_a") &&
+      resData.resources.length > resData.components.length, // 全量资源多于组件清单（含图片等）
+  );
+
   // ===== 2. Scene Tree 正确性 =====
   const scene = await get("/api/scene?component=cycle/CycleA.xml");
   const sceneData = JSON.parse(scene.body) as {
