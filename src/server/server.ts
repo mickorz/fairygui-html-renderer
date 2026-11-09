@@ -11,6 +11,7 @@ import { diffScenes } from "../scene/scene-diff.js";
 import { writeComponentXml } from "../writer/xml-writer.js";
 import { renderHtml } from "../renderer/html-renderer.js";
 import { editorPageHtml } from "../editor/editor-page.js";
+import { screenshotUrlAsync } from "./chrome.js";
 import { multiProjectWorkspace, singleProjectWorkspace, type Workspace } from "./projects.js";
 
 // 只读工作区服务（阶段 B）：工程导航 + Scene Tree JSON + 资源与渲染视图
@@ -260,6 +261,36 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, ws: Wo
       { bare: u.searchParams.get("bare") === "1", editor: u.searchParams.get("docid") !== null },
     );
     return text(res, 200, html);
+  }
+
+  // 组件区域截图（对比用）：尺寸精确对齐组件 size（bare 渲染 stage 从 0,0 铺满），
+  // 供后续与 FairyGUI 原版截图直接 diff；输出 dev-examples/screenshots/<名>.render.png（与 <名>.fgui.png 原版图配对）
+  if (p === "/api/screenshot") {
+    const comp = u.searchParams.get("component") ?? "";
+    const abs = safeResolve(assetsRoot, comp);
+    if (!abs || !abs.endsWith(".xml") || !fs.existsSync(abs)) {
+      return json(res, 404, { error: `组件不存在或路径越界: ${comp}` });
+    }
+    const pkg = loadPackage(findPackageDir(path.dirname(abs), assetsRoot));
+    const scene = buildScene(getComponent(abs, { fresh: true }), { pkg, root });
+    const w = Math.min(Math.max(Math.round(scene.size[0]) || 1, 1), 4096);
+    const h = Math.min(Math.max(Math.round(scene.size[1]) || 1, 1), 4096);
+    const host = req.headers.host ?? "localhost";
+    // 纯净渲染：bare=1 且不传 docid（无信息条/无选择器脚本），资源 URL 带工程上下文
+    const viewUrl = `http://${host}/view?component=${encodeURIComponent(comp)}&project=${encodeURIComponent(pj.name)}&bare=1`;
+    const base = path.basename(abs, ".xml").replace(/[^a-zA-Z0-9._-]/g, "_");
+    const outDir = path.join(process.cwd(), "dev-examples", "screenshots");
+    fs.mkdirSync(outDir, { recursive: true });
+    const outFile = path.join(outDir, `${base}.render.png`);
+    // 异步截图：目标 URL 是本服务的 /view 页面——spawnSync 会阻塞事件循环导致 Chrome 请求无应答（自死锁）
+    await screenshotUrlAsync(viewUrl, outFile, w, h);
+    return json(res, 200, {
+      component: comp,
+      project: pj.name,
+      size: [w, h],
+      file: path.relative(process.cwd(), outFile).split(path.sep).join("/"),
+      pair: "同名 .fgui.png（FairyGUI 原版截图）放同目录即可配对对比",
+    });
   }
 
   // 资源静态服务

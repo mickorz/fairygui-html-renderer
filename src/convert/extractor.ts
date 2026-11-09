@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { findChrome } from "../mcp/chrome.js";
+import { findChrome } from "../server/chrome.js";
 
 // browser-extractor（阶段 G）：无人值守提取
 // 原理：向样本 HTML 注入提取脚本（把 JSON 写入隐藏 <pre id="__extract__">），

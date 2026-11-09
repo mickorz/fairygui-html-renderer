@@ -15,7 +15,12 @@ function check(name: string, ok: boolean, detail = "") {
   if (!ok) failed++;
 }
 
-const ctx = { rootDir: path.resolve("projects", "CC-Default") };
+// 官方 Demo 工程根：跟随数据所在位置（projects/ 或屏蔽期间的 projects-disabled/）
+const ccRoot = ["projects/CC-Default", "projects-disabled/CC-Default"]
+  .map((d) => path.resolve(d))
+  .find((d) => fs.existsSync(d));
+if (!ccRoot) { console.log("[跳过] 官方 Demo 工程不存在"); process.exit(0); }
+const ctx = { rootDir: ccRoot };
 const fxRoot = { rootDir: path.resolve("tests/fixtures/workspace") };
 
 // ===== 场景 1：同名组件重复出现（locate → 两个 key 各自定位） =====
@@ -120,7 +125,9 @@ const protocolResult = await new Promise<{ toolCount?: number; locateTotal?: num
 });
 check(
   "stdio 协议冒烟（initialize/tools/list/tools/call）",
-  protocolResult.toolCount === 9 && protocolResult.locateTotal !== undefined && protocolResult.locateTotal > 0,
+  // locate 的 total 取决于 MCP 默认工程内容（P0-A 起默认根跟随默认工程，可能非官方 Demo）——
+  // 冒烟断言协议链路：返回结构化内容即可，不断言默认工程的节点命中数
+  protocolResult.toolCount === 9 && typeof protocolResult.locateTotal === "number" && protocolResult.error === undefined,
   JSON.stringify(protocolResult),
 );
 child.kill();

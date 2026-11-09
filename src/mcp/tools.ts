@@ -10,7 +10,7 @@ import { getComponent, buildScene } from "../scene/scene-builder.js";
 import type { ParsedComponent, ParsedNode } from "../parser/component-parser.js";
 import { listComponents, listPackages, searchWorkspace } from "../scene/workspace.js";
 import { renderHtml } from "../renderer/html-renderer.js";
-import { screenshotUrl } from "./chrome.js";
+import { screenshotUrl } from "../server/chrome.js";
 import { safeResolve, findPackageDir } from "../server/server.js";
 
 // MCP 四工具的核心逻辑（阶段 D）：纯函数、与传输层（stdio 协议壳）分离，便于直测

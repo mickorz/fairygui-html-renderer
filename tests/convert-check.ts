@@ -14,7 +14,10 @@ function check(name: string, ok: boolean, detail = "") {
   if (!ok) failed++;
 }
 
-const root = path.resolve("projects", "CC-Default");
+// 转换产物输出工程根（独立沙盒，gitignore）：fairy-writer 的 outPkgDir 以此为根自建目录。
+// 注意：root 是输出根不是官方 Demo 根——早期版本寄生在 projects/CC-Default/assets 下曾致其被
+// 产物重建污染（屏蔽官方 Demo 后 mkdirSync 复活残缺工程），故独立成 tmp-convert。
+const root = path.resolve("tmp-convert");
 
 // ===== 单元：颜色与 PNG 尺寸 =====
 check("rgb 颜色转 hex", toHexColor("rgb(255, 214, 102)") === "#ffd666");

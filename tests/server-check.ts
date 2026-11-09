@@ -106,14 +106,20 @@ try {
   check("还原后内容恢复", restored.body.includes('"1"') && !restored.body.includes("1_changed"));
 
   // ===== 6. 双模式一致（服务渲染 vs CLI 渲染路径） =====
-  // 用 CC-Default 再起一个服务实例（测试主实例的 root 是 fixtures/workspace）
-  const ccServer = createApp({ rootDir: path.resolve("projects", "CC-Default") });
+  // 用官方 Demo 工程再起一个服务实例（测试主实例的 root 是 fixtures/workspace）；
+  // 真实 Demo 根跟随数据所在位置（projects/ 或屏蔽期间的 projects-disabled/），不存在则整块跳过
+  const ccRoot = ["projects/CC-Default", "projects-disabled/CC-Default"]
+    .map((d) => path.resolve(d))
+    .find((d) => fs.existsSync(d));
+  if (!ccRoot) console.log("[跳过] 双模式一致断言（官方 Demo 工程不存在）");
+  if (ccRoot) {
+  const ccServer = createApp({ rootDir: ccRoot });
   await new Promise<void>((r) => ccServer.listen(0, "127.0.0.1", r));
   try {
     const ccPort = (ccServer.address() as AddressInfo).port;
-    const pkg = loadPackage(path.resolve("projects", "CC-Default/assets/Bag"));
+    const pkg = loadPackage(path.join(ccRoot, "assets/Bag"));
     const cliHtml = renderHtml(
-      buildScene(getComponent(path.resolve("projects", "CC-Default/assets/Bag/BagWin.xml")), { pkg, root: path.resolve("projects", "CC-Default") }),
+      buildScene(getComponent(path.join(ccRoot, "assets/Bag/BagWin.xml")), { pkg, root: ccRoot }),
       { pkg, toAssetUrl: (f) => f },
     );
     const serverView = await fetch(`http://127.0.0.1:${ccPort}/view?component=` + encodeURIComponent("Bag/BagWin.xml"));
@@ -143,6 +149,7 @@ try {
     );
   } finally {
     ccServer.close();
+  }
   }
 
   // ===== 阶段 C：同名节点多结果（workspace 服务实例） =====
@@ -301,6 +308,31 @@ try {
           && textsOf(sa2.body).includes("PROJ_a") && !textsOf(sb.body).includes("PROJ_a"),
         `a=${textsOf(sa.body)} b=${textsOf(sb.body)}`,
       );
+      // 10. 组件区域截图（对比用）：尺寸精确对齐组件 size（PNG IHDR 硬校验）；Chrome 缺失时跳过
+      {
+        const { findChrome } = await import("../src/server/chrome.js");
+        if (findChrome()) {
+          const shot = await g2("/api/screenshot?project=a&component=Pkg/Comp.xml");
+          const sd2 = JSON.parse(shot.body) as { size?: number[]; file?: string; error?: string };
+          const pngFile = path.resolve(String(sd2.file ?? ""));
+          const okFile = shot.status === 200 && sd2.size?.[0] === 100 && sd2.size?.[1] === 50 && fs.existsSync(pngFile);
+          // PNG IHDR：8 字节签名 + 4 长度 + "IHDR" + width(4BE, 偏移 16) + height(4BE, 偏移 20)
+          let ihdr = [0, 0];
+          if (okFile) {
+            const buf = fs.readFileSync(pngFile);
+            ihdr = [buf.readUInt32BE(16), buf.readUInt32BE(20)];
+          }
+          check(
+            "截图：尺寸精确对齐组件 size（IHDR 100x50）",
+            okFile && ihdr[0] === 100 && ihdr[1] === 50,
+            JSON.stringify({ status: shot.status, size: sd2.size, ihdr, error: sd2.error }),
+          );
+          const miss = await g2("/api/screenshot?project=a&component=Pkg/Nope.xml");
+          check("截图：组件不存在 404", miss.status === 404, `status=${miss.status}`);
+        } else {
+          console.log("[跳过] 截图断言（本机无 Chrome）");
+        }
+      }
     } finally {
       server2.close();
     }
