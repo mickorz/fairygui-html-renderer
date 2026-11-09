@@ -68,7 +68,7 @@ check("邻域：环成员 inCycle 含自身与对端", nbCycle.inCycle.length ==
 
 // ===== 真实样本冒烟（CC-Default 存在时） =====
 import fs from "node:fs";
-const realRoot = path.resolve(root, "..", "..", "..", "projects", "CC-Default");
+const realRoot = path.resolve(root, "..", "..", "..", "projects-disabled", "CC-Default");
 if (fs.existsSync(path.join(realRoot, "assets"))) {
   const ridx = buildUiAssetIndex(realRoot);
   const rgraph = buildComponentGraph(ridx);
