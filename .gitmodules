@@ -1,3 +1,6 @@
 [submodule "thirdparties/OpenFairy-SDK-uGUI"]
 	path = thirdparties/OpenFairy-SDK-uGUI
 	url = https://github.com/OpenFairyGUI/OpenFairy-SDK-uGUI
+[submodule "thirdparties/fairygui-agent-bridge"]
+	path = thirdparties/fairygui-agent-bridge
+	url = https://github.com/wingcd/fairygui-agent-bridge.git
