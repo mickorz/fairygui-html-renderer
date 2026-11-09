@@ -258,7 +258,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, ws: Wo
         toAssetUrl: (assetAbs) =>
           `/api/assets/${path.relative(assetsRoot, assetAbs).split(path.sep).join("/")}?project=${encodeURIComponent(pj.name)}`,
       },
-      { bare: u.searchParams.get("bare") === "1", editor: u.searchParams.get("docid") !== null },
+      { bare: u.searchParams.get("bare") === "1", editor: u.searchParams.get("docid") !== null, clip: u.searchParams.get("clip") !== "0" },
     );
     return text(res, 200, html);
   }

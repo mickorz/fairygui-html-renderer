@@ -259,6 +259,17 @@ check("N5b：树列表 level 1 缩进（indent 宽 10）", /data-fgui-name="inde
 check("N5b：树列表 level 0 缩进 0", /data-fgui-name="indent"[^>]*width:0px/.test(flat(p4Html)));
 check("N5b：树列表 item 标题下发（Folder/LeafA）", p4Html.includes("Folder") && p4Html.includes("LeafA"));
 
+// L8：clip 参数（不裁剪超出画布内容，编辑器风格）
+const clipOffHtml = renderHtml(bagWin, { pkg, toAssetUrl: (f) => f }, { clip: false });
+check(
+  "L8：clip=false 不裁剪（overflow:visible + 画布虚线框标记）",
+  clipOffHtml.includes("overflow:visible") && clipOffHtml.includes("border:1px dashed #9a9a9a") && clipOffHtml.includes("overflow:auto"),
+);
+check(
+  "L8：默认仍裁剪（截图链路零影响）",
+  !bagHtml.includes("overflow:visible") && bagHtml.includes("overflow:hidden"),
+);
+
 if (failed > 0) {
   console.error(`检查失败 ${failed} 项`);
   process.exit(1);

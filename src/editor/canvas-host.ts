@@ -1,5 +1,5 @@
 // Canvas 宿主（沿袭 egret 项目 P3-A canvas-host，适配 FairyGUI 数据源）
-// iframe 加载 /view?component=..&bare=1&docid=..（bare 无信息条，docid 驱动 postMessage 协议）
+// iframe 加载 /view?component=..&bare=1&docid=..&clip=0（bare 无信息条，docid 驱动 postMessage 协议，clip=0 不裁剪溢出画布内容方便查看 L8）
 // postMessage 双向选择：
 //   iframe -> 父：CANVAS_READY / NODE_SELECTED / NODE_DESELECTED / NODE_NOT_FOUND（均携带 documentId）
 //   父 -> iframe：SELECT_NODE / DESELECT_NODE（携带 documentId）
@@ -139,7 +139,7 @@ export function canvasHostScript(): string {
       }
       applyZoom();
       // iframe src 带工程上下文（P0-B）：iframe 内资源 URL 由服务端按该 project 解析落位
-      frame.src = "/view?component=" + encodeURIComponent(ED.file) + "&bare=1&docid=" + encodeURIComponent(ED.docId)
+      frame.src = "/view?component=" + encodeURIComponent(ED.file) + "&bare=1&docid=" + encodeURIComponent(ED.docId) + "&clip=0"
         + (ED.project ? "&project=" + encodeURIComponent(ED.project) : "");
       loadRel();
       return;

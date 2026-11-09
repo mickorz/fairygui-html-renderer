@@ -76,7 +76,7 @@ function createRenderChildren(unsupported: UnsupportedItem[], tints: Set<string>
 export function renderHtml(
   comp: ParsedComponent,
   ctx: RenderContext,
-  options: { bare?: boolean; editor?: boolean } = {},
+  options: { bare?: boolean; editor?: boolean; clip?: boolean } = {},
 ): string {
   const unsupported: UnsupportedItem[] = [];
   const tints = new Set<string>();
@@ -86,6 +86,8 @@ export function renderHtml(
   const bare = options.bare === true;
   // editor：工作台 iframe 模式（docid 驱动 postMessage 协议）——无信息条但保留选择器脚本
   const editor = options.editor === true;
+  // clip=false：不裁剪超出画布的内容（L8，FairyGUI 编辑器风格：舞台无限延伸，画布边界用虚线框标记）
+  const clip = options.clip !== false;
   const listHtml = bare
     ? ""
     : unsupported.length
@@ -102,8 +104,8 @@ export function renderHtml(
 <meta charset="utf-8">
 <title>${esc(path.basename(comp.file))} - fairygui-html-renderer</title>
 <style>
-body { background:#2b2b2b; margin:0; padding:${bare ? 0 : 16}px; font-family:sans-serif; }
-.fgui-stage { position:relative; background:#5a5a5a; overflow:${comp.overflow === "scroll" ? "auto" : "hidden"}; }
+body { background:#2b2b2b; margin:0; padding:${clip ? (bare ? 0 : 16) : 48}px; font-family:sans-serif;${clip ? "" : " overflow:auto;"} }
+.fgui-stage { position:relative; background:#5a5a5a; overflow:${clip ? (comp.overflow === "scroll" ? "auto" : "hidden") : "visible"};${clip ? "" : " border:1px dashed #9a9a9a; margin:0 auto;"} }
 .fgui-node { position:absolute; box-sizing:border-box; }
 /* 可滚容器滚动条可见化（N1）：Chrome 覆盖式滚动条默认静止时不显示 */
 .fgui-stage::-webkit-scrollbar, .fgui-node::-webkit-scrollbar { width:12px; height:12px; }
@@ -118,7 +120,7 @@ body { background:#2b2b2b; margin:0; padding:${bare ? 0 : 16}px; font-family:san
 ${defs}
 ${bare || editor ? "" : '<div id="fgui-info">点击画布中的组件查看定位信息</div>'}
 ${listHtml}
-<div class="fgui-stage" style="width:${comp.size[0]}px;height:${comp.size[1]}px${comp.overflow === "scroll" ? ";overflow:auto" : ""}">
+<div class="fgui-stage" style="width:${comp.size[0]}px;height:${comp.size[1]}px${clip && comp.overflow === "scroll" ? ";overflow:auto" : ""}${clip ? "" : ";margin-bottom:48px"}">
     ${inner}
 </div>
 <script>${selectorScript()}</script>

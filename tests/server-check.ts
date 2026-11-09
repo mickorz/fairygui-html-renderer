@@ -66,6 +66,14 @@ try {
   );
   check("scene 不越界时循环不误报（toB 自身无 unsupported）", !!toB && toB.unsupported === undefined);
 
+  // L8：clip 参数（/view 不裁剪超出画布内容）
+  const viewClipOff = await get("/view?component=cycle/CycleA.xml&clip=0");
+  check("L8：/view?clip=0 不裁剪（overflow:visible + 画布虚线框）", viewClipOff.status === 200 && viewClipOff.body.includes("overflow:visible") && viewClipOff.body.includes("border:1px dashed #9a9a9a"));
+  const viewClipDefault = await get("/view?component=cycle/CycleA.xml");
+  check("L8：/view 未传 clip 默认裁剪（截图与既有链路零影响）", viewClipDefault.status === 200 && !viewClipDefault.body.includes("overflow:visible") && viewClipDefault.body.includes("overflow:hidden"));
+  const viewBare = await get("/view?component=cycle/CycleA.xml&bare=1");
+  check("L8：bare 未传 clip 仍裁剪（截图尺寸对齐组件 size）", viewBare.status === 200 && !viewBare.body.includes("overflow:visible") && viewBare.body.includes("overflow:hidden"));
+
   // ===== 3. scene 与渲染 DOM 一致性 =====
   const view = await get("/view?component=cycle/CycleA.xml");
   function countNodes(ns: { children?: unknown[] }[]): number {
