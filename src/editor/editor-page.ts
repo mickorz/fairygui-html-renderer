@@ -18,7 +18,7 @@ export function editorPageHtml(): string {
 <style>
 * { box-sizing:border-box; }
 html, body { margin:0; height:100%; }
-body { font-family:sans-serif; background:#222; color:#ddd; display:flex; flex-direction:column; overflow:hidden; font-size:12px; }
+body { font-family:"Microsoft YaHei", "PingFang SC", sans-serif; background:#222; color:#ddd; display:flex; flex-direction:column; overflow:hidden; font-size:12px; }
 
 #topbar { height:34px; flex:none; display:flex; align-items:center; gap:10px; padding:0 10px; background:#2b2b2b; border-bottom:1px solid #444; }
 #topbar .name { color:#8ee6ff; white-space:nowrap; }
@@ -37,15 +37,18 @@ body { font-family:sans-serif; background:#222; color:#ddd; display:flex; flex-d
 #hsplit { height:5px; flex:none; cursor:row-resize; background:#262626; }
 #vsplit1:hover, #vsplit2:hover, #hsplit:hover { background:#4a6a8a; }
 
-#proj-pane { height:65%; min-height:110px; flex:none; display:flex; flex-direction:column; overflow:hidden; }
-#scene-pane { flex:1; min-height:80px; display:flex; flex-direction:column; overflow:hidden; }
-.pane-tabs { flex:none; display:flex; align-items:center; gap:2px; padding:0 4px; background:#222; border-bottom:1px solid #3a3a3a; }
-.pane-tabs .tab { flex:none; padding:5px 10px 4px; color:#888; background:none; border:none; border-bottom:2px solid transparent; cursor:default; font-size:12px; }
-.pane-tabs .tab.active { color:#fff; border-bottom-color:#3d6ab0; background:#2b2b2b; }
+#proj-pane { height:65%; min-height:110px; flex:none; display:flex; flex-direction:column; overflow:hidden; background:#3f3f3f; }
+#scene-pane { flex:1; min-height:80px; display:flex; flex-direction:column; overflow:hidden; background:#3f3f3f; }
+.pane-tabs { flex:none; display:flex; align-items:center; gap:2px; padding:0 4px; background:#464646; border-bottom:1px solid #3a3a3a; }
+.pane-tabs .tab { flex:none; padding:5px 10px 4px; color:#999; background:none; border:none; cursor:default; font-size:12px; }
+.pane-tabs .tab.active { color:#fff; background:none; font-weight:500; }
 .pane-tabs .info { flex:1; color:#777; font-size:11px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; text-align:right; padding-right:4px; }
 .pane-tabs button { background:#333; color:#aaa; border:1px solid #555; border-radius:3px; padding:1px 6px; cursor:pointer; font-size:11px; margin-left:4px; }
 .pane-search { flex:none; padding:4px 6px 2px; }
-.pane-search input { width:100%; padding:4px 6px; background:#1e1e1e; color:#ddd; border:1px solid #555; border-radius:3px; font-size:12px; }
+.pane-search input { width:100%; padding:4px 6px; background:#353535; color:#ddd; border:1px solid #555; border-radius:2px; font-size:12px; }
+.tree::-webkit-scrollbar, #viewport::-webkit-scrollbar { width:8px; height:8px; }
+.tree::-webkit-scrollbar-thumb, #viewport::-webkit-scrollbar-thumb { background:#5a5a5a; border-radius:4px; }
+.tree::-webkit-scrollbar-track, #viewport::-webkit-scrollbar-track { background:transparent; }
 
 #canvas-col { flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; }
 #rel-bar { display:none; flex:none; padding:6px 10px; background:#262626; border-bottom:1px solid #444; max-height:130px; overflow:auto; }
@@ -63,17 +66,18 @@ body { font-family:sans-serif; background:#222; color:#ddd; display:flex; flex-d
 #right { width:320px; min-width:240px; max-width:520px; flex:none; overflow:auto; background:#2b2b2b; border-left:1px solid #444; }
 
 .tree { flex:1; min-height:0; overflow:auto; padding:2px 0; }
-.tree .row { display:flex; align-items:center; gap:4px; padding:2px 6px; cursor:pointer; white-space:nowrap; }
+.tree .row { display:flex; align-items:center; gap:4px; padding:0 6px; height:26px; line-height:26px; cursor:pointer; white-space:nowrap; }
 .tree .row:hover { background:#2f2f2f; }
-.tree .row.sel { background:#3d6ab0; color:#fff; }
+.tree .row.sel { background:#4d6a85; color:#fff; }
 .tree .row.sel .lbl .id { color:#dce9ff; }
-.tree .row .icon.pkg { background:#1d3a63; color:#7db1ff; }
-.tree .row .icon.folder { background:#4a3d1d; color:#ffd666; }
-.tree .row .caret { width:12px; flex:none; color:#888; text-align:center; }
+.tree .row .caret { width:12px; flex:none; color:#6fa1d8; text-align:center; opacity:0.55; }
+.tree .row.open > .caret, .tree .row .caret.clk:hover { opacity:1; }
 .tree .row .caret.clk { cursor:pointer; border-radius:3px; }
 .tree .row .caret.clk:hover { color:#fff; background:#3a3a3a; }
-.tree .row .icon { flex:none; width:16px; height:16px; line-height:16px; text-align:center; font-size:10px; background:#3a3a3a; border-radius:3px; color:#9cc; }
-.tree .row .lbl { color:#ccc; overflow:hidden; text-overflow:ellipsis; }
+.tree .row .icon { flex:none; width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center; }
+.tree .row .icon svg { display:block; }
+.tree .row .lbl { color:#c9c9c9; overflow:hidden; text-overflow:ellipsis; }
+.tree .row.file .lbl, .tree .row.res .lbl { color:#b9b9b9; }
 .tree .row .lbl .id { color:#7ec6ff; }
 .tree .row .badge { flex:none; font-size:10px; border-radius:3px; padding:0 4px; }
 .badge.exp { background:#3a3352; color:#c9a6ff; }
@@ -125,7 +129,7 @@ body.dragging iframe { pointer-events:none; }
 <div id="body">
   <div id="left">
     <div id="proj-pane">
-      <div class="pane-tabs"><button class="tab active">资源库</button><span class="info" id="pt-info"></span><button id="pt-locate" title="定位当前打开的组件">定位</button></div>
+      <div class="pane-tabs"><button class="tab active"><svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="#e0e0e0" stroke-width="1.2"><path d="M2 6 6 2.5 10 6"/><path d="M3.5 5.5v4h5v-4"/></svg>资源库</button><span class="info" id="pt-info"></span><button id="pt-locate" title="定位当前打开的组件">定位</button></div>
       <div class="pane-search">
         <input id="pt-q" placeholder="搜索：资源名 / 资源 id / 包名" />
       </div>
@@ -133,7 +137,7 @@ body.dragging iframe { pointer-events:none; }
     </div>
     <div id="hsplit"></div>
     <div id="scene-pane">
-      <div class="pane-tabs"><button class="tab active">显示列表</button><span class="info" id="st-info"></span></div>
+      <div class="pane-tabs"><button class="tab active"><svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="#e0e0e0" stroke-width="1.2"><path d="M2 2.5h8"/><path d="M2 6h8"/><path d="M2 9.5h8"/></svg>显示列表</button><span class="info" id="st-info"></span></div>
       <div id="scene-tree" class="tree"><div class="empty">打开左侧组件后展示节点结构</div></div>
     </div>
   </div>

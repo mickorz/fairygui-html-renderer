@@ -19,8 +19,17 @@ export function projectTreeScript(): string {
   var SEARCH_LIMIT = 300;
   var curProject = null;        // 本模块已加载的工程（检测切换 -> 清缓存重拉）
 
-  // 资源类型图标（对齐原版资源库：组件/图片/字体/影片剪辑各有图标）
-  var ICON = { component: "C", image: "I", font: "F", movieclip: "J", other: "·" };
+  // 资源类型图标（L9b 对齐原版：图形化 SVG 描边风，无 emoji）
+  // 包=蓝色箱形（盖沿高光）/文件夹=黄色/组件=窗体/图片=山形/字体=字母A/动画=胶片
+  var PKG_SVG = '<svg viewBox="0 0 16 16" width="14" height="14"><polygon points="8,1 15,4.5 8,8 1,4.5" fill="#6aa6d8"/><polygon points="1,4.5 8,8 8,15 1,11.5" fill="#3d7ab5"/><polygon points="15,4.5 8,8 8,15 15,11.5" fill="#2a5a8c"/><path d="M8 1 15 4.5 15 11.5 8 15 1 11.5 1 4.5Z M8 1 8 8 M1 4.5 15 11.5" fill="none" stroke="#ffffff" stroke-width="0.8"/></svg>';
+  var FOLDER_SVG = '<svg viewBox="0 0 12 12" width="14" height="14"><path d="M1.5 3h4l1.2 1.5h3.8v5.5h-9z" fill="#e0b054"/><path d="M1.5 4.4h9v1H1.5z" fill="#f0cc86"/></svg>';
+  var RES_SVG = {
+    component: '<svg viewBox="0 0 16 16" width="12" height="12"><polygon points="8,1 15,4.5 8,8 1,4.5" fill="none" stroke="#c8c8c8" stroke-width="1.3"/><polygon points="1,4.5 8,8 8,15 1,11.5" fill="none" stroke="#c8c8c8" stroke-width="1.3"/><polygon points="15,4.5 8,8 8,15 15,11.5" fill="#c8c8c8" fill-opacity="0.25" stroke="#c8c8c8" stroke-width="1.3"/></svg>',
+    image: '<svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="#c8c8c8" stroke-width="1.2"><circle cx="9" cy="3.5" r="1.2"/><path d="M1.5 10.5 5 6.5l2.5 3 1.5-1.5 2 2.5"/></svg>',
+    font: '<svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="#c8c8c8" stroke-width="1.2"><path d="M3 10 6 2.5 9 10"/><path d="M4.2 7.5h3.6"/></svg>',
+    movieclip: '<svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="#c8c8c8" stroke-width="1.2"><rect x="2.5" y="2.5" width="7" height="7"/><path d="M1 4h1.5M1 8h1.5M9.5 4H11M9.5 8H11"/></svg>',
+    other: '<svg viewBox="0 0 12 12" width="12" height="12" fill="#888"><circle cx="6" cy="6" r="1.5"/></svg>'
+  };
   var KIND_NAME = { component: "组件", image: "图片", font: "字体", movieclip: "动画", other: "资源" };
 
   function esc(s) {
@@ -30,14 +39,12 @@ export function projectTreeScript(): string {
   function pkgRow(pkg) {
     var el = document.createElement("div");
     var expanded = !!ED.ptExpanded[pkg.name];
-    var count = resCache[pkg.name] ? resCache[pkg.name].length : "";
     el.className = "row dir" + (expanded ? " open" : "");
     el.dataset.pkg = pkg.name;
     el.style.paddingLeft = "8px";
-    el.innerHTML = '<span class="caret">' + (expanded ? "-" : "+") + '</span>' +
-      '<span class="icon pkg">P</span>' +
-      '<span class="lbl" title="' + esc(pkg.name) + '">' + esc(pkg.name) + '</span>' +
-      (count !== "" ? '<span class="badge cnt">' + count + '</span>' : '<span class="badge cnt">…</span>');
+    el.innerHTML = '<span class="caret">' + (expanded ? "▾" : "▸") + '</span>' +
+      '<span class="icon">' + PKG_SVG + '</span>' +
+      '<span class="lbl" title="' + esc(pkg.name) + '">' + esc(pkg.name) + '</span>';
     el.onclick = function () {
       ED.ptExpanded[pkg.name] = !ED.ptExpanded[pkg.name];
       if (ED.ptExpanded[pkg.name] && !resCache[pkg.name]) {
@@ -69,8 +76,8 @@ export function projectTreeScript(): string {
     var el = document.createElement("div");
     el.className = "row dir" + (expanded ? " open" : "");
     el.style.paddingLeft = (8 + depth * 16) + "px";
-    el.innerHTML = '<span class="caret">' + (expanded ? "-" : "+") + '</span>' +
-      '<span class="icon folder">D</span>' +
+    el.innerHTML = '<span class="caret">' + (expanded ? "▾" : "▸") + '</span>' +
+      '<span class="icon">' + FOLDER_SVG + '</span>' +
       '<span class="lbl">' + esc(seg) + '</span>';
     el.onclick = function () { ED.ptExpanded[key] = !ED.ptExpanded[key]; render(); };
     return el;
@@ -88,9 +95,8 @@ export function projectTreeScript(): string {
     }
     el.style.paddingLeft = (24 + depth * 16) + "px";
     el.innerHTML = '<span class="caret"></span>' +
-      '<span class="icon" title="' + esc(KIND_NAME[r.kind] || r.kind) + '">' + (ICON[r.kind] || "·") + '</span>' +
-      '<span class="lbl" title="' + esc(KIND_NAME[r.kind] + " " + file) + '">' + esc(r.name) + (isComp && !r.exported ? ' <span class="id">内部</span>' : '') + '</span>' +
-      '<span class="badge cnt">' + esc(r.id) + '</span>';
+      '<span class="icon" title="' + esc(KIND_NAME[r.kind] || r.kind) + '">' + (RES_SVG[r.kind] || RES_SVG.other) + '</span>' +
+      '<span class="lbl" title="' + esc(KIND_NAME[r.kind] + " " + file) + '">' + esc(r.name) + (isComp && !r.exported ? ' <span class="id">内部</span>' : '') + '</span>';
     if (isComp) {
       el.onclick = function () { edOpenComponent(r.component); };
     } else {
